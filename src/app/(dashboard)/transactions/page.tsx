@@ -1,11 +1,22 @@
+import { redirect } from "next/navigation";
 import { ExportButtons } from "@/components/transactions/export-buttons";
 import { ReminderPanel } from "@/components/transactions/reminder-panel";
 import { Timeline } from "@/components/transactions/timeline";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import { getDashboardData } from "@/lib/data/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function TransactionsPage() {
-  const data = await getDashboardData();
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const data = await getDashboardData(user.id);
 
   return (
     <div className="grid gap-5">

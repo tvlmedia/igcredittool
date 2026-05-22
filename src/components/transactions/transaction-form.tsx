@@ -121,7 +121,7 @@ export function TransactionForm({
 
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="Title">
-            <Input name="title" required placeholder="NAB follow-up sale" />
+            <Input name="title" required placeholder="Follow-up sale" />
           </Field>
           <Field label="Date">
             <Input name="date" type="date" required defaultValue={today} />
@@ -181,7 +181,7 @@ export function TransactionForm({
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Tags">
-            <Input name="tags" placeholder="NAB, CineGear, Paris, Zeiss" />
+            <Input name="tags" placeholder="Trade show, city, lens brand" />
           </Field>
           <Field label="Reminder date">
             <Input name="reminderDueDate" type="date" />
@@ -246,7 +246,7 @@ function ExpoFields({
     <div className="grid gap-4">
       <div className="grid gap-4 md:grid-cols-3">
         <Field label="Expo name">
-          <Input name="expoName" placeholder="NAB Las Vegas" />
+          <Input name="expoName" placeholder="Industry expo" />
         </Field>
         <Field label="Days">
           <Input
@@ -286,7 +286,7 @@ function RentalTourFields() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Field label="Rental / tour name">
-        <Input name="tourName" placeholder="Cooke demo tour Amsterdam" />
+        <Input name="tourName" placeholder="Rental tour" />
       </Field>
       <Field label="Source label">
         <Input name="sourceLabel" placeholder="Rental tour" />

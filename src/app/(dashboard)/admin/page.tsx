@@ -1,22 +1,20 @@
+import { redirect } from "next/navigation";
 import { AdminOverview } from "@/components/dashboard/admin-overview";
 import { Panel } from "@/components/ui/panel";
 import { getAdminProfiles, getDashboardData, getProfile } from "@/lib/data/queries";
-import { demoProfile, getDemoProfiles } from "@/lib/data/demo";
-import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import type { DashboardData, Profile } from "@/lib/types/domain";
 
 export default async function AdminPage() {
-  let profile = demoProfile;
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  if (hasSupabaseEnv()) {
-    const supabase = await createClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    profile = user ? (await getProfile(user.id)) ?? demoProfile : demoProfile;
+  if (!user) {
+    redirect("/login");
   }
+
+  const profile = await getProfile(user.id);
 
   if (profile?.role !== "admin") {
     return (
@@ -32,15 +30,7 @@ export default async function AdminPage() {
     );
   }
 
-  let profiles: Profile[];
-  let data: DashboardData;
-
-  if (profile.id === demoProfile.id) {
-    profiles = getDemoProfiles();
-    data = await getDashboardData();
-  } else {
-    [profiles, data] = await Promise.all([getAdminProfiles(), getDashboardData()]);
-  }
+  const [profiles, data] = await Promise.all([getAdminProfiles(), getDashboardData()]);
 
   return (
     <div className="grid gap-5">

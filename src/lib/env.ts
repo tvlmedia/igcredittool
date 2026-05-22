@@ -8,5 +8,5 @@ export function hasSupabaseEnv() {
 
 export function getDefaultEurUsdRate() {
   const configured = Number(process.env.NEXT_PUBLIC_DEFAULT_EUR_USD_RATE);
-  return Number.isFinite(configured) && configured > 0 ? configured : 1.08;
+  return Number.isFinite(configured) && configured > 0 ? configured : 1;
 }

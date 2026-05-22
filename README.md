@@ -34,7 +34,7 @@ Create `.env.local`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-NEXT_PUBLIC_DEFAULT_EUR_USD_RATE=1.08
+NEXT_PUBLIC_DEFAULT_EUR_USD_RATE=your-current-rate
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 

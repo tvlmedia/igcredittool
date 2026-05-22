@@ -1,9 +1,21 @@
+import { redirect } from "next/navigation";
 import { CreditCharts } from "@/components/charts/credit-charts";
 import { InsightGrid } from "@/components/dashboard/insight-grid";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { getDashboardData } from "@/lib/data/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function InsightsPage() {
-  const data = await getDashboardData();
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const data = await getDashboardData(user.id);
 
   return (
     <div className="grid gap-5">
@@ -14,7 +26,7 @@ export default async function InsightsPage() {
         <h1 className="mt-2 text-3xl font-semibold text-white">Insights</h1>
       </div>
       <InsightGrid data={data} />
-      <CreditCharts data={data} />
+      {data.transactions.length > 0 ? <CreditCharts data={data} /> : <EmptyState />}
     </div>
   );
 }

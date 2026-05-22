@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 
+const protectedPrefixes = ["/dashboard", "/transactions", "/insights", "/admin"];
 const authPrefixes = ["/login", "/signup", "/reset-password", "/update-password"];
 
 export async function middleware(request: NextRequest) {
@@ -35,7 +36,15 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
   const isAuthPage = authPrefixes.some((prefix) => pathname.startsWith(prefix));
+
+  if (isProtected && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
 
   if (isAuthPage && user && pathname !== "/update-password") {
     const url = request.nextUrl.clone();

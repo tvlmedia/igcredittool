@@ -107,7 +107,7 @@ export function Timeline({
             </Select>
           </Field>
           <Field label="Tags">
-            <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="NAB" />
+            <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="Tag" />
           </Field>
           <Field label="Linked source">
             <Select value={source} onChange={(event) => setSource(event.target.value)}>

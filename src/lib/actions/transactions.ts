@@ -33,8 +33,8 @@ export async function createTransaction(
 ): Promise<TransactionActionState> {
   if (!hasSupabaseEnv()) {
     return {
-      status: "success",
-      message: "Demo transaction accepted. Connect Supabase to persist it."
+      status: "error",
+      message: "Supabase environment variables are missing."
     };
   }
 
@@ -45,8 +45,8 @@ export async function createTransaction(
 
   if (!user) {
     return {
-      status: "success",
-      message: "Demo transaction accepted. Sign in later to persist it."
+      status: "error",
+      message: "You need to be logged in."
     };
   }
 
