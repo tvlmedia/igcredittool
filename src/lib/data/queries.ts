@@ -1,5 +1,6 @@
 import { buildDashboardData } from "@/lib/calculations";
-import { getDefaultEurUsdRate } from "@/lib/env";
+import { getDefaultEurUsdRate, hasSupabaseEnv } from "@/lib/env";
+import { demoProfile, getDemoDashboardData, getDemoProfiles } from "@/lib/data/demo";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DashboardData,
@@ -15,6 +16,10 @@ import type {
 } from "@/lib/types/domain";
 
 export async function getProfile(userId: string) {
+  if (!hasSupabaseEnv()) {
+    return demoProfile;
+  }
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
@@ -26,6 +31,10 @@ export async function getProfile(userId: string) {
 }
 
 export async function getDashboardData(userId?: string): Promise<DashboardData> {
+  if (!hasSupabaseEnv() || !userId) {
+    return getDemoDashboardData();
+  }
+
   const supabase = await createClient();
   const scopedTransactions = supabase
     .from("transactions")
@@ -87,6 +96,10 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
 }
 
 export async function getAdminProfiles() {
+  if (!hasSupabaseEnv()) {
+    return getDemoProfiles();
+  }
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import type { Currency, TransactionType } from "@/lib/types/domain";
 
@@ -30,13 +31,23 @@ export async function createTransaction(
   _previousState: TransactionActionState,
   formData: FormData
 ): Promise<TransactionActionState> {
+  if (!hasSupabaseEnv()) {
+    return {
+      status: "success",
+      message: "Demo transaction accepted. Connect Supabase to persist it."
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { status: "error", message: "You need to be logged in." };
+    return {
+      status: "success",
+      message: "Demo transaction accepted. Sign in later to persist it."
+    };
   }
 
   const parsed = baseSchema.safeParse(Object.fromEntries(formData));

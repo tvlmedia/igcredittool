@@ -1,14 +1,9 @@
 import { CreditCharts } from "@/components/charts/credit-charts";
 import { InsightGrid } from "@/components/dashboard/insight-grid";
 import { getDashboardData } from "@/lib/data/queries";
-import { createClient } from "@/lib/supabase/server";
 
 export default async function InsightsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  const data = await getDashboardData(user?.id);
+  const data = await getDashboardData();
 
   return (
     <div className="grid gap-5">

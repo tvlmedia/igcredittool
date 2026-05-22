@@ -19,6 +19,7 @@ export function AppShell({
   profile: Profile | null;
 }) {
   const visibleNav = navItems.filter((item) => item.href !== "/admin" || profile?.role === "admin");
+  const isPreview = profile?.email === "demo@ironglass.com";
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[280px_1fr]">
@@ -60,7 +61,13 @@ export function AppShell({
         </div>
 
         <div className="mt-4">
-          <SignOutButton />
+          {isPreview ? (
+            <div className="rounded-md border border-iron-400/20 bg-iron-400/10 px-3 py-3 text-sm font-semibold text-iron-300">
+              Preview mode
+            </div>
+          ) : (
+            <SignOutButton />
+          )}
         </div>
       </aside>
 

@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { SetupNotice } from "@/components/ui/setup-notice";
 import { hasSupabaseEnv } from "@/lib/env";
 import { getProfile } from "@/lib/data/queries";
+import { demoProfile } from "@/lib/data/demo";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function DashboardLayout({
@@ -12,7 +11,7 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   if (!hasSupabaseEnv()) {
-    return <SetupNotice />;
+    return <AppShell profile={demoProfile}>{children}</AppShell>;
   }
 
   const supabase = await createClient();
@@ -20,11 +19,7 @@ export default async function DashboardLayout({
     data: { user }
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  const profile = await getProfile(user.id);
+  const profile = user ? await getProfile(user.id) : demoProfile;
 
   return <AppShell profile={profile}>{children}</AppShell>;
 }
