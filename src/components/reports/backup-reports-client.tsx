@@ -154,8 +154,26 @@ export function BackupReportsClient({ snapshots }: { snapshots: CreditSnapshot[]
               Latest
             </Button>
           </div>
+          <ReportStatus state={state} />
         </Panel>
       ) : null}
+    </div>
+  );
+}
+
+function ReportStatus({ state }: { state: ManualReportActionState }) {
+  if (state.status === "idle") {
+    return null;
+  }
+
+  const tone =
+    state.status === "error"
+      ? "border-red-300/20 bg-red-500/[0.08] text-red-100/82"
+      : "border-volt-300/20 bg-volt-400/[0.08] text-volt-100/82";
+
+  return (
+    <div className={`mt-4 rounded-md border px-3 py-2 text-sm leading-5 ${tone}`}>
+      {state.message}
     </div>
   );
 }
