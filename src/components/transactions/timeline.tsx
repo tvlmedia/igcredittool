@@ -170,6 +170,7 @@ export function Timeline({
           return (
             <article
               key={transaction.id}
+              id={`transaction-${transaction.id}`}
               className="grid gap-4 rounded-lg border border-l-2 border-white/10 bg-gradient-to-b from-white/[0.045] to-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition duration-200 hover:border-iron-400/18 hover:bg-white/[0.055] md:grid-cols-[150px_1fr_auto]"
               style={{
                 borderLeftColor: typeColor.core,
