@@ -3,11 +3,36 @@
 import { Download, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
+import { calculateTransactionBreakdown } from "@/lib/calculations";
+import { getDefaultEurUsdRate } from "@/lib/env";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { TimelineEvent } from "@/lib/types/domain";
+import type { DashboardData, TimelineEvent } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
 
-export function ExportButtons({ transactions }: { transactions: TimelineEvent[] }) {
+export function ExportButtons({
+  transactions,
+  saleDetails = [],
+  expoDetails = [],
+  rentalTourDetails = [],
+  expenseItems = [],
+  purchaseDetails = []
+}: {
+  transactions: TimelineEvent[];
+  saleDetails?: DashboardData["saleDetails"];
+  expoDetails?: DashboardData["expoDetails"];
+  rentalTourDetails?: DashboardData["rentalTourDetails"];
+  expenseItems?: DashboardData["expenseItems"];
+  purchaseDetails?: DashboardData["purchaseDetails"];
+}) {
+  const calculations = buildCalculationMap({
+    transactions,
+    saleDetails,
+    expoDetails,
+    rentalTourDetails,
+    expenseItems,
+    purchaseDetails
+  });
+
   function exportCsv() {
     const header = [
       "date",
@@ -25,7 +50,7 @@ export function ExportButtons({ transactions }: { transactions: TimelineEvent[] 
       transactionTypeLabels[transaction.type],
       transaction.currency,
       transaction.original_amount,
-      transaction.converted_amount_usd ?? "",
+      calculations.get(transaction.id)?.usdEquivalent ?? "",
       transaction.description ?? "",
       transaction.tags.map((tag) => tag.name).join("|")
     ]);
@@ -67,8 +92,8 @@ export function ExportButtons({ transactions }: { transactions: TimelineEvent[] 
       doc.setFontSize(9);
       doc.text(
         `${transactionTypeLabels[transaction.type]} | ${formatCurrency(
-          Number(transaction.original_amount),
-          transaction.currency
+          Math.abs(calculations.get(transaction.id)?.usdEquivalent ?? Number(transaction.original_amount)),
+          "USD"
         )} | ${transaction.tags.map((tag) => tag.name).join(", ") || "No tags"}`,
         margin,
         y
@@ -99,6 +124,46 @@ export function ExportButtons({ transactions }: { transactions: TimelineEvent[] 
         PDF
       </Button>
     </div>
+  );
+}
+
+function buildCalculationMap(input: {
+  transactions: TimelineEvent[];
+  saleDetails: DashboardData["saleDetails"];
+  expoDetails: DashboardData["expoDetails"];
+  rentalTourDetails: DashboardData["rentalTourDetails"];
+  expenseItems: DashboardData["expenseItems"];
+  purchaseDetails: DashboardData["purchaseDetails"];
+}) {
+  const saleByTransaction = new Map(input.saleDetails.map((detail) => [detail.transaction_id, detail]));
+  const expoByTransaction = new Map(input.expoDetails.map((detail) => [detail.transaction_id, detail]));
+  const rentalByTransaction = new Map(
+    input.rentalTourDetails.map((detail) => [detail.transaction_id, detail])
+  );
+  const purchaseByTransaction = new Map(
+    input.purchaseDetails.map((detail) => [detail.transaction_id, detail])
+  );
+  const expenseItemsByTransaction = input.expenseItems.reduce<
+    Map<string, DashboardData["expenseItems"]>
+  >((map, item) => {
+    map.set(item.transaction_id, [...(map.get(item.transaction_id) ?? []), item]);
+    return map;
+  }, new Map());
+  const eurUsdRate = getDefaultEurUsdRate();
+
+  return new Map(
+    input.transactions.map((transaction) => [
+      transaction.id,
+      calculateTransactionBreakdown({
+        transaction,
+        eurUsdRate,
+        expenseItems: expenseItemsByTransaction.get(transaction.id) ?? [],
+        saleDetail: saleByTransaction.get(transaction.id),
+        expoDetail: expoByTransaction.get(transaction.id),
+        rentalTourDetail: rentalByTransaction.get(transaction.id),
+        purchaseDetail: purchaseByTransaction.get(transaction.id)
+      })
+    ])
   );
 }
 

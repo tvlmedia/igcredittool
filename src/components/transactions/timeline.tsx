@@ -20,6 +20,13 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Panel, SectionHeader } from "@/components/ui/panel";
 import { LocationAutocomplete } from "@/components/transactions/location-autocomplete";
 import {
+  calculateTransactionBreakdown,
+  groupCurrencyAmounts,
+  type CurrencyAmount,
+  type TransactionCalculationBreakdown
+} from "@/lib/calculations";
+import { getDefaultEurUsdRate } from "@/lib/env";
+import {
   deleteTransaction,
   deleteTransactionAttachment,
   restoreTransaction,
@@ -31,7 +38,6 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import type {
   Currency,
   DashboardData,
-  ExpenseItem,
   Reminder,
   TimelineEvent,
   TransactionType
@@ -227,14 +233,16 @@ export function Timeline({
           const location = getLocationLabel(transaction);
           const reminder = remindersByTransaction.get(transaction.id);
           const urgency = reminder ? getReminderUrgency(daysUntil(reminder.due_date)) : null;
-          const calculationRows = getCalculationRows({
+          const calculation = calculateTransactionBreakdown({
             transaction,
+            eurUsdRate: getDefaultEurUsdRate(),
+            expenseItems: expenseItemsByTransaction.get(transaction.id) ?? [],
             saleDetail: saleByTransaction.get(transaction.id),
             expoDetail: expoByTransaction.get(transaction.id),
             rentalTourDetail: rentalByTransaction.get(transaction.id),
-            purchaseDetail: purchaseByTransaction.get(transaction.id),
-            expenseItems: expenseItemsByTransaction.get(transaction.id) ?? []
+            purchaseDetail: purchaseByTransaction.get(transaction.id)
           });
+          const calculationRows = getCalculationRows(calculation);
           const amountLabel =
             transaction.type === "purchase" ? "Final cost/spend" : "Final credit earned";
 
@@ -419,210 +427,147 @@ type CalculationRow = {
   emphasis?: boolean;
 };
 
-function getCalculationRows(input: {
-  transaction: TimelineEvent;
-  saleDetail?: DashboardData["saleDetails"][number];
-  expoDetail?: DashboardData["expoDetails"][number];
-  rentalTourDetail?: DashboardData["rentalTourDetails"][number];
-  purchaseDetail?: DashboardData["purchaseDetails"][number];
-  expenseItems: ExpenseItem[];
-}): CalculationRow[] {
-  if (input.transaction.type === "sale") {
-    const saleAmount = input.saleDetail?.sale_amount ?? Math.abs(Number(input.transaction.original_amount));
-    const saleCurrency = input.saleDetail?.sale_currency ?? input.transaction.currency;
-    const creditPercentage = input.saleDetail?.credit_percentage ?? 100;
-
+function getCalculationRows(calculation: TransactionCalculationBreakdown): CalculationRow[] {
+  if (calculation.type === "sale") {
     return [
-      { label: "Sale amount", value: formatCurrency(Number(saleAmount), saleCurrency) },
-      { label: "Credit percentage", value: `${formatNumber(Number(creditPercentage))}%` },
+      {
+        label: "Sale amount",
+        value: calculation.saleAmount
+          ? formatCurrency(calculation.saleAmount.amount, calculation.saleAmount.currency)
+          : formatCurrency(Math.abs(calculation.originalAmount), calculation.currency)
+      },
+      { label: "Credit percentage", value: `${formatNumber(calculation.creditPercentage ?? 100)}%` },
       {
         label: "Final credit earned",
-        value: formatCurrency(Number(input.transaction.original_amount), input.transaction.currency),
+        value: formatCurrencyAmounts(calculation.finalCreditEarned, calculation.currency),
         emphasis: true
       }
     ];
   }
 
-  if (input.transaction.type === "expo") {
-    const days = Math.max(1, Number(input.expoDetail?.days_count ?? 1));
-    const dailyCredits = normalizeDailyCredits(input.expoDetail?.daily_credits);
-    const defaultCreditPerDay = Number(
-      input.expoDetail?.default_credit_per_day ??
-        (dailyCredits.length > 0 ? dailyCredits[0] : Number(input.transaction.original_amount) / days)
-    );
-    const grossExpoCredit =
-      dailyCredits.length > 0
-        ? dailyCredits.reduce((sum, value) => sum + value, 0)
-        : Number(input.transaction.original_amount);
-    const expensesMultiplier = Number(input.expoDetail?.expenses_multiplier ?? 1);
-    const expenseTotals = groupCurrencyAmounts(
-      input.expenseItems.map((item) => ({
+  if (calculation.type === "expo") {
+    const expenseCredit = groupCurrencyAmounts(
+      calculation.expenses.map((item) => ({
         currency: item.currency,
-        amount: Number(item.amount)
+        amount: item.amount * calculation.multiplier
       }))
-    );
-    const expenseCreditTotals = groupCurrencyAmounts(
-      input.expenseItems.map((item) => ({
-        currency: item.currency,
-        amount: Number(item.amount) * expensesMultiplier
-      }))
-    );
-    const finalTotals = addGroupedAmount(
-      expenseCreditTotals,
-      input.transaction.currency,
-      grossExpoCredit
     );
 
     return [
       {
         label: "Expo credit/day",
-        value: formatCurrency(defaultCreditPerDay, input.transaction.currency)
+        value: calculation.dailyCreditAmount
+          ? formatCurrency(calculation.dailyCreditAmount.amount, calculation.dailyCreditAmount.currency)
+          : formatCurrency(calculation.grossCredit.amount, calculation.grossCredit.currency)
       },
-      { label: "Number of days", value: `${days}` },
+      { label: "Number of days", value: `${calculation.days ?? 1}` },
       {
         label: "Gross expo credit",
-        value: formatCurrency(grossExpoCredit, input.transaction.currency)
+        value: formatCurrency(calculation.grossCredit.amount, calculation.grossCredit.currency)
       },
       {
         label: "Expenses",
-        value: formatGroupedAmounts(expenseTotals, input.transaction.currency)
+        value: formatCurrencyAmounts(calculation.expenses, calculation.currency)
       },
-      { label: "Expenses multiplier", value: `x${formatNumber(expensesMultiplier)}` },
+      { label: "Expenses multiplier", value: `x${formatNumber(calculation.multiplier)}` },
       {
         label: "Expense credit",
-        value: formatGroupedAmounts(expenseCreditTotals, input.transaction.currency)
+        value: formatCurrencyAmounts(expenseCredit, calculation.currency)
       },
       {
         label: "Final credit earned",
-        value: formatGroupedAmounts(finalTotals, input.transaction.currency),
+        value: formatCurrencyAmounts(calculation.finalCreditEarned, calculation.currency),
         emphasis: true
       }
     ];
   }
 
-  if (input.transaction.type === "expense") {
+  if (calculation.type === "expense") {
     return [
       {
         label: "Expense amount",
-        value: formatCurrency(Number(input.transaction.original_amount), input.transaction.currency)
+        value: formatCurrency(calculation.grossCredit.amount, calculation.grossCredit.currency)
       },
-      { label: "Multiplier", value: "x1" },
+      { label: "Multiplier", value: `x${formatNumber(calculation.multiplier)}` },
       {
         label: "Final credit earned",
-        value: formatCurrency(Number(input.transaction.original_amount), input.transaction.currency),
+        value: formatCurrencyAmounts(calculation.finalCreditEarned, calculation.currency),
         emphasis: true
       }
     ];
   }
 
-  if (input.transaction.type === "rental_tour") {
-    const expensesMultiplier = Number(input.rentalTourDetail?.expenses_multiplier ?? 1);
-    const expenseTotals = groupCurrencyAmounts(
-      input.expenseItems.map((item) => ({
+  if (calculation.type === "rental_tour") {
+    const expenseCredit = groupCurrencyAmounts(
+      calculation.expenses.map((item) => ({
         currency: item.currency,
-        amount: Number(item.amount)
+        amount: item.amount * calculation.multiplier
       }))
     );
-    const expenseCreditTotals = groupCurrencyAmounts(
-      input.expenseItems.map((item) => ({
-        currency: item.currency,
-        amount: Number(item.amount) * expensesMultiplier
-      }))
-    );
-    const hasExpenses = input.expenseItems.length > 0;
+    const hasExpenses = calculation.expenses.length > 0;
 
     return [
       {
         label: "Tour/day amount",
         value: hasExpenses
           ? "From expenses"
-          : formatCurrency(Number(input.transaction.original_amount), input.transaction.currency)
+          : formatCurrency(calculation.grossCredit.amount, calculation.grossCredit.currency)
       },
       { label: "Days", value: "Not tracked" },
       {
         label: "Expenses",
-        value: hasExpenses ? formatGroupedAmounts(expenseTotals, input.transaction.currency) : "None"
+        value: hasExpenses ? formatCurrencyAmounts(calculation.expenses, calculation.currency) : "None"
       },
-      { label: "Expenses multiplier", value: `x${formatNumber(expensesMultiplier)}` },
+      { label: "Expenses multiplier", value: `x${formatNumber(calculation.multiplier)}` },
       {
         label: "Final credit earned",
         value: hasExpenses
-          ? formatGroupedAmounts(expenseCreditTotals, input.transaction.currency)
-          : formatCurrency(Number(input.transaction.original_amount), input.transaction.currency),
+          ? formatCurrencyAmounts(expenseCredit, calculation.currency)
+          : formatCurrencyAmounts(calculation.finalCreditEarned, calculation.currency),
         emphasis: true
       }
     ];
   }
 
-  const purchaseAmount = Math.abs(Number(input.transaction.original_amount));
+  const purchaseAmount = Math.abs(calculation.originalAmount);
 
   return [
     {
       label: "Purchase amount",
-      value: formatCurrency(purchaseAmount, input.transaction.currency)
+      value: formatCurrency(purchaseAmount, calculation.currency)
     },
-    { label: "Currency", value: input.transaction.currency },
-    input.purchaseDetail
+    { label: "Currency", value: calculation.currency },
+    calculation.paymentMode
       ? {
           label: "Payment mode",
-          value: formatPaymentMode(input.purchaseDetail.payment_mode)
+          value: formatPaymentMode(calculation.paymentMode)
         }
       : null,
     {
       label: "Final cost/spend",
-      value: formatCurrency(purchaseAmount, input.transaction.currency),
+      value: formatCurrency(purchaseAmount, calculation.currency),
       emphasis: true
     }
   ].filter((row): row is CalculationRow => Boolean(row));
 }
 
-function groupExpenseItems(items: ExpenseItem[]) {
-  return items.reduce<Map<string, ExpenseItem[]>>((map, item) => {
+function groupExpenseItems(items: DashboardData["expenseItems"]) {
+  return items.reduce<Map<string, DashboardData["expenseItems"]>>((map, item) => {
     map.set(item.transaction_id, [...(map.get(item.transaction_id) ?? []), item]);
     return map;
   }, new Map());
 }
 
-function normalizeDailyCredits(value: unknown) {
-  return Array.isArray(value)
-    ? value.map(Number).filter((item) => Number.isFinite(item) && item >= 0)
-    : [];
-}
-
-function groupCurrencyAmounts(items: Array<{ currency: Currency; amount: number }>) {
-  return items.reduce<Partial<Record<Currency, number>>>((grouped, item) => {
-    if (!Number.isFinite(item.amount)) {
-      return grouped;
-    }
-
-    grouped[item.currency] = (grouped[item.currency] ?? 0) + item.amount;
-    return grouped;
-  }, {});
-}
-
-function addGroupedAmount(
-  grouped: Partial<Record<Currency, number>>,
-  currency: Currency,
-  amount: number
-) {
-  return groupCurrencyAmounts([
-    ...Object.entries(grouped).map(([key, value]) => ({
-      currency: key as Currency,
-      amount: value ?? 0
-    })),
-    { currency, amount }
-  ]);
-}
-
-function formatGroupedAmounts(grouped: Partial<Record<Currency, number>>, preferredCurrency: Currency) {
+function formatCurrencyAmounts(amounts: CurrencyAmount[], preferredCurrency: Currency) {
   const currencies = [
     preferredCurrency,
     ...(["USD", "EUR"] as Currency[]).filter((currency) => currency !== preferredCurrency)
   ];
+  const grouped = new Map(groupCurrencyAmounts(amounts).map((item) => [item.currency, item.amount]));
   const parts = currencies
     .map((currency) => ({
       currency,
-      amount: grouped[currency] ?? 0
+      amount: grouped.get(currency) ?? 0
     }))
     .filter((item) => Math.abs(item.amount) > 0.000001)
     .map((item) => formatCurrency(item.amount, item.currency));

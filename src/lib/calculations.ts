@@ -12,7 +12,8 @@ import type {
   TimelineEvent,
   Transaction,
   TransactionAttachment,
-  TransactionType
+  TransactionType,
+  Currency
 } from "@/lib/types/domain";
 
 const incomeTypes: TransactionType[] = ["sale", "expo", "rental_tour", "expense"];
@@ -23,6 +24,31 @@ const trackedTypes: TransactionType[] = [
   "expense",
   "purchase"
 ];
+
+export type CurrencyAmount = {
+  currency: Currency;
+  amount: number;
+};
+
+export type TransactionCalculationBreakdown = {
+  transactionId: string;
+  type: TransactionType;
+  originalAmount: number;
+  currency: Currency;
+  exchangeRateSnapshot: number | null;
+  grossCredit: CurrencyAmount;
+  expenses: CurrencyAmount[];
+  multiplier: number;
+  finalCreditEarned: CurrencyAmount[];
+  usdEquivalent: number;
+  eurReserveImpact: number;
+  usdReserveImpact: number;
+  saleAmount?: CurrencyAmount;
+  creditPercentage?: number;
+  days?: number;
+  dailyCreditAmount?: CurrencyAmount;
+  paymentMode?: PurchaseDetail["payment_mode"];
+};
 
 export function amountToUsd(transaction: Transaction, eurUsdRate: number) {
   if (transaction.currency === "EUR") {
@@ -38,6 +64,133 @@ export function expenseToUsd(item: ExpenseItem, eurUsdRate: number) {
   }
 
   return Number(item.amount);
+}
+
+export function calculateTransactionBreakdown(input: {
+  transaction: Transaction;
+  eurUsdRate: number;
+  expenseItems: ExpenseItem[];
+  saleDetail?: SaleDetail;
+  expoDetail?: ExpoDetail;
+  rentalTourDetail?: RentalTourDetail;
+  purchaseDetail?: PurchaseDetail;
+}): TransactionCalculationBreakdown {
+  const originalAmount = Number(input.transaction.original_amount);
+  const exchangeRateSnapshot =
+    input.transaction.exchange_rate_snapshot === null
+      ? null
+      : Number(input.transaction.exchange_rate_snapshot);
+  const base: CurrencyAmount = {
+    currency: input.transaction.currency,
+    amount: originalAmount
+  };
+  const expenses = input.expenseItems.map((item) => ({
+    currency: item.currency,
+    amount: Number(item.amount)
+  }));
+
+  if (input.transaction.type === "purchase") {
+    const usdReserveImpact = -(input.purchaseDetail?.usd_credit_used ?? Math.abs(originalAmount));
+    const eurReserveImpact = -(input.purchaseDetail?.eur_credit_converted ?? 0);
+
+    return {
+      transactionId: input.transaction.id,
+      type: input.transaction.type,
+      originalAmount,
+      currency: input.transaction.currency,
+      exchangeRateSnapshot,
+      grossCredit: base,
+      expenses: [],
+      multiplier: 1,
+      finalCreditEarned: [base],
+      usdEquivalent: amountToUsd(input.transaction, input.eurUsdRate),
+      eurReserveImpact,
+      usdReserveImpact,
+      paymentMode: input.purchaseDetail?.payment_mode
+    };
+  }
+
+  if (input.transaction.type === "expo") {
+    const multiplier = Number(input.expoDetail?.expenses_multiplier ?? 1);
+    const expenseCredit = expenses.map((item) => ({
+      currency: item.currency,
+      amount: item.amount * multiplier
+    }));
+    const finalCreditEarned = groupCurrencyAmounts([base, ...expenseCredit]);
+
+    return {
+      transactionId: input.transaction.id,
+      type: input.transaction.type,
+      originalAmount,
+      currency: input.transaction.currency,
+      exchangeRateSnapshot,
+      grossCredit: base,
+      expenses,
+      multiplier,
+      finalCreditEarned,
+      usdEquivalent:
+        amountToUsd(input.transaction, input.eurUsdRate) +
+        input.expenseItems.reduce(
+          (sum, item) => sum + expenseToUsd(item, input.eurUsdRate) * multiplier,
+          0
+        ),
+      ...reserveImpactFromAmounts(finalCreditEarned),
+      days: Math.max(1, Number(input.expoDetail?.days_count ?? 1)),
+      dailyCreditAmount: {
+        currency: input.transaction.currency,
+        amount: Number(input.expoDetail?.default_credit_per_day ?? originalAmount)
+      }
+    };
+  }
+
+  if (input.transaction.type === "rental_tour") {
+    const multiplier = Number(input.rentalTourDetail?.expenses_multiplier ?? 1);
+    const expenseCredit = expenses.map((item) => ({
+      currency: item.currency,
+      amount: item.amount * multiplier
+    }));
+    const finalCreditEarned =
+      expenseCredit.length > 0 ? groupCurrencyAmounts(expenseCredit) : [base];
+    const expenseUsd = input.expenseItems.reduce(
+      (sum, item) => sum + expenseToUsd(item, input.eurUsdRate) * multiplier,
+      0
+    );
+
+    return {
+      transactionId: input.transaction.id,
+      type: input.transaction.type,
+      originalAmount,
+      currency: input.transaction.currency,
+      exchangeRateSnapshot,
+      grossCredit: expenseCredit.length > 0 ? { currency: input.transaction.currency, amount: 0 } : base,
+      expenses,
+      multiplier,
+      finalCreditEarned,
+      usdEquivalent: expenseUsd || amountToUsd(input.transaction, input.eurUsdRate),
+      ...reserveImpactFromAmounts(finalCreditEarned)
+    };
+  }
+
+  return {
+    transactionId: input.transaction.id,
+    type: input.transaction.type,
+    originalAmount,
+    currency: input.transaction.currency,
+    exchangeRateSnapshot,
+    grossCredit: base,
+    expenses,
+    multiplier: 1,
+    finalCreditEarned: [base],
+    usdEquivalent: amountToUsd(input.transaction, input.eurUsdRate),
+    ...reserveImpactFromAmounts([base]),
+    saleAmount: input.saleDetail
+      ? {
+          currency: input.saleDetail.sale_currency,
+          amount: Number(input.saleDetail.sale_amount)
+        }
+      : undefined,
+    creditPercentage: input.saleDetail ? Number(input.saleDetail.credit_percentage) : undefined
+  };
 }
 
 export function buildDashboardData(input: {
@@ -91,13 +244,16 @@ export function buildDashboardData(input: {
   );
 
   for (const transaction of sortedTransactions) {
-    const amountUsd = transactionAmountToUsd({
+    const calculation = calculateTransactionBreakdown({
       transaction,
       eurUsdRate: input.eurUsdRate,
       expenseItems: expenseItemsByTransaction.get(transaction.id) ?? [],
+      saleDetail: saleByTransaction.get(transaction.id),
       expoDetail: expoByTransaction.get(transaction.id),
-      rentalTourDetail: rentalByTransaction.get(transaction.id)
+      rentalTourDetail: rentalByTransaction.get(transaction.id),
+      purchaseDetail: purchaseByTransaction.get(transaction.id)
     });
+    const amountUsd = calculation.usdEquivalent;
     const isIncome = incomeTypes.includes(transaction.type);
 
     if (isIncome) {
@@ -113,35 +269,8 @@ export function buildDashboardData(input: {
       (breakdownMap.get(transaction.type) ?? 0) + Math.abs(amountUsd)
     );
 
-    const transactionExpenseItems = expenseItemsByTransaction.get(transaction.id) ?? [];
-
-    if (transaction.type === "purchase") {
-      const purchase = purchaseByTransaction.get(transaction.id);
-      usdReserve -= purchase?.usd_credit_used ?? Math.abs(transaction.original_amount);
-      eurReserve -= purchase?.eur_credit_converted ?? 0;
-    } else if (transaction.type === "expo") {
-      const expo = expoByTransaction.get(transaction.id);
-      const multiplier = expo?.expenses_multiplier ?? 1;
-
-      addToReserve(transaction.currency, Number(transaction.original_amount));
-
-      for (const item of transactionExpenseItems) {
-        addToReserve(item.currency, Number(item.amount) * multiplier);
-      }
-    } else if (transaction.type === "rental_tour") {
-      const rental = rentalByTransaction.get(transaction.id);
-      const multiplier = rental?.expenses_multiplier ?? 1;
-
-      if (transactionExpenseItems.length > 0) {
-        for (const item of transactionExpenseItems) {
-          addToReserve(item.currency, Number(item.amount) * multiplier);
-        }
-      } else {
-        addToReserve(transaction.currency, Number(transaction.original_amount));
-      }
-    } else {
-      addToReserve(transaction.currency, Number(transaction.original_amount));
-    }
+    eurReserve += calculation.eurReserveImpact;
+    usdReserve += calculation.usdReserveImpact;
 
     growth.push({
       date: transaction.date,
@@ -232,13 +361,15 @@ export function buildDashboardData(input: {
       .sort((a, b) => b.value - a.value)[0]?.type ?? null;
 
   function getTransactionAmount(transaction: Transaction) {
-    return transactionAmountToUsd({
+    return calculateTransactionBreakdown({
       transaction,
       eurUsdRate: input.eurUsdRate,
       expenseItems: expenseItemsByTransaction.get(transaction.id) ?? [],
+      saleDetail: saleByTransaction.get(transaction.id),
       expoDetail: expoByTransaction.get(transaction.id),
-      rentalTourDetail: rentalByTransaction.get(transaction.id)
-    });
+      rentalTourDetail: rentalByTransaction.get(transaction.id),
+      purchaseDetail: purchaseByTransaction.get(transaction.id)
+    }).usdEquivalent;
   }
 
   const currentYear = new Date().getFullYear();
@@ -261,14 +392,6 @@ export function buildDashboardData(input: {
         : 0;
 
   const sortedProfitability = [...profitability].sort((a, b) => b.salesUsd - a.salesUsd);
-
-  function addToReserve(currency: Transaction["currency"], amount: number) {
-    if (currency === "EUR") {
-      eurReserve += amount;
-    } else {
-      usdReserve += amount;
-    }
-  }
 
   return {
     transactions: timeline,
@@ -319,29 +442,45 @@ export function transactionAmountToUsd(input: {
   transaction: Transaction;
   eurUsdRate: number;
   expenseItems: ExpenseItem[];
+  saleDetail?: SaleDetail;
   expoDetail?: ExpoDetail;
   rentalTourDetail?: RentalTourDetail;
+  purchaseDetail?: PurchaseDetail;
 }) {
-  if (input.transaction.type === "expo") {
-    const baseUsd = amountToUsd(input.transaction, input.eurUsdRate);
-    const multiplier = input.expoDetail?.expenses_multiplier ?? 1;
-    const expenseUsd = input.expenseItems.reduce(
-      (sum, item) => sum + expenseToUsd(item, input.eurUsdRate) * multiplier,
-      0
-    );
-    return baseUsd + expenseUsd;
-  }
+  return calculateTransactionBreakdown(input).usdEquivalent;
+}
 
-  if (input.transaction.type === "rental_tour") {
-    const multiplier = input.rentalTourDetail?.expenses_multiplier ?? 1;
-    const expenseUsd = input.expenseItems.reduce(
-      (sum, item) => sum + expenseToUsd(item, input.eurUsdRate) * multiplier,
-      0
-    );
-    return expenseUsd || amountToUsd(input.transaction, input.eurUsdRate);
-  }
+export function groupCurrencyAmounts(items: CurrencyAmount[]): CurrencyAmount[] {
+  const grouped = items.reduce<Partial<Record<Currency, number>>>((acc, item) => {
+    if (!Number.isFinite(item.amount)) {
+      return acc;
+    }
 
-  return amountToUsd(input.transaction, input.eurUsdRate);
+    acc[item.currency] = (acc[item.currency] ?? 0) + item.amount;
+    return acc;
+  }, {});
+
+  return (["EUR", "USD"] as Currency[])
+    .map((currency) => ({
+      currency,
+      amount: grouped[currency] ?? 0
+    }))
+    .filter((item) => Math.abs(item.amount) > 0.000001);
+}
+
+export function reserveImpactFromAmounts(amounts: CurrencyAmount[]) {
+  return amounts.reduce(
+    (impact, item) => {
+      if (item.currency === "EUR") {
+        impact.eurReserveImpact += item.amount;
+      } else {
+        impact.usdReserveImpact += item.amount;
+      }
+
+      return impact;
+    },
+    { eurReserveImpact: 0, usdReserveImpact: 0 }
+  );
 }
 
 function groupBy<T>(items: T[], getKey: (item: T) => string) {

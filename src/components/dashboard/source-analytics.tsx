@@ -176,11 +176,17 @@ function topItems(grouped: Record<string, number>, unit: "currency" | "count" = 
 
 function getCreditValueByTransaction(data: DashboardData) {
   const eurUsdRate = getDefaultEurUsdRate();
+  const saleByTransaction = new Map(
+    data.saleDetails.map((detail) => [detail.transaction_id, detail])
+  );
   const expoByTransaction = new Map(
     data.expoDetails.map((detail) => [detail.transaction_id, detail])
   );
   const rentalByTransaction = new Map(
     data.rentalTourDetails.map((detail) => [detail.transaction_id, detail])
+  );
+  const purchaseByTransaction = new Map(
+    data.purchaseDetails.map((detail) => [detail.transaction_id, detail])
   );
   const expenseItemsByTransaction = data.expenseItems.reduce<
     Map<string, DashboardData["expenseItems"]>
@@ -197,8 +203,10 @@ function getCreditValueByTransaction(data: DashboardData) {
           transaction,
           eurUsdRate,
           expenseItems: expenseItemsByTransaction.get(transaction.id) ?? [],
+          saleDetail: saleByTransaction.get(transaction.id),
           expoDetail: expoByTransaction.get(transaction.id),
-          rentalTourDetail: rentalByTransaction.get(transaction.id)
+          rentalTourDetail: rentalByTransaction.get(transaction.id),
+          purchaseDetail: purchaseByTransaction.get(transaction.id)
         })
       )
     ])

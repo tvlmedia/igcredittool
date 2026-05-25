@@ -39,7 +39,14 @@ export default async function TransactionsPage() {
             <Trash2 size={16} />
             Deleted transactions
           </Link>
-          <ExportButtons transactions={data.transactions} />
+          <ExportButtons
+            transactions={data.transactions}
+            saleDetails={data.saleDetails}
+            expoDetails={data.expoDetails}
+            rentalTourDetails={data.rentalTourDetails}
+            expenseItems={data.expenseItems}
+            purchaseDetails={data.purchaseDetails}
+          />
         </div>
       </div>
 
