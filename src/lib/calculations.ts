@@ -315,7 +315,7 @@ function snapshotRate(value: number | string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function transactionAmountToUsd(input: {
+export function transactionAmountToUsd(input: {
   transaction: Transaction;
   eurUsdRate: number;
   expenseItems: ExpenseItem[];

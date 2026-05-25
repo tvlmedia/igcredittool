@@ -1,5 +1,7 @@
 import { Aperture, Building2, Globe2, MapPin, Tags, Trophy } from "lucide-react";
 import { Panel, SectionHeader } from "@/components/ui/panel";
+import { transactionAmountToUsd } from "@/lib/calculations";
+import { getDefaultEurUsdRate } from "@/lib/env";
 import { formatCurrency } from "@/lib/format";
 import type { DashboardData, OwnedLens } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
@@ -17,21 +19,24 @@ export function SourceAnalytics({
   data: DashboardData;
   lenses: OwnedLens[];
 }) {
-  const countries = topItems(groupTransactions(data, (transaction) => transaction.country));
+  const valueByTransaction = getCreditValueByTransaction(data);
+  const countries = topItems(
+    groupTransactions(data, valueByTransaction, (transaction) => transaction.country)
+  );
   const cities = topItems(
-    groupTransactions(data, (transaction) =>
+    groupTransactions(data, valueByTransaction, (transaction) =>
       [transaction.city, transaction.country].filter(Boolean).join(", ")
     )
   );
   const types = topItems(
-    groupTransactions(data, (transaction) => transactionTypeLabels[transaction.type])
+    groupTransactions(data, valueByTransaction, (transaction) => transactionTypeLabels[transaction.type])
   );
   const expos = topItems(
-    groupTransactions(data, (transaction) =>
+    groupTransactions(data, valueByTransaction, (transaction) =>
       transaction.type === "expo" ? transaction.title : null
     )
   );
-  const tags = topItems(groupTags(data));
+  const tags = topItems(groupTags(data, valueByTransaction));
   const lensBrands = topItems(groupLenses(lenses), "count");
   const bestLocation = [...cities].sort((a, b) => b.value - a.value)[0] ?? null;
 
@@ -122,6 +127,7 @@ export function SourceAnalytics({
 
 function groupTransactions(
   data: DashboardData,
+  valueByTransaction: Map<string, number>,
   getLabel: (transaction: DashboardData["transactions"][number]) => string | null | undefined
 ) {
   return data.transactions.reduce<Record<string, number>>((acc, transaction) => {
@@ -130,15 +136,15 @@ function groupTransactions(
       return acc;
     }
 
-    acc[label] = (acc[label] ?? 0) + transactionValue(transaction);
+    acc[label] = (acc[label] ?? 0) + (valueByTransaction.get(transaction.id) ?? 0);
     return acc;
   }, {});
 }
 
-function groupTags(data: DashboardData) {
+function groupTags(data: DashboardData, valueByTransaction: Map<string, number>) {
   return data.transactions.reduce<Record<string, number>>((acc, transaction) => {
     for (const tag of transaction.tags) {
-      acc[tag.name] = (acc[tag.name] ?? 0) + transactionValue(transaction);
+      acc[tag.name] = (acc[tag.name] ?? 0) + (valueByTransaction.get(transaction.id) ?? 0);
     }
 
     return acc;
@@ -168,6 +174,33 @@ function topItems(grouped: Record<string, number>, unit: "currency" | "count" = 
     .slice(0, 5);
 }
 
-function transactionValue(transaction: DashboardData["transactions"][number]) {
-  return Math.abs(Number(transaction.converted_amount_usd ?? transaction.original_amount));
+function getCreditValueByTransaction(data: DashboardData) {
+  const eurUsdRate = getDefaultEurUsdRate();
+  const expoByTransaction = new Map(
+    data.expoDetails.map((detail) => [detail.transaction_id, detail])
+  );
+  const rentalByTransaction = new Map(
+    data.rentalTourDetails.map((detail) => [detail.transaction_id, detail])
+  );
+  const expenseItemsByTransaction = data.expenseItems.reduce<
+    Map<string, DashboardData["expenseItems"]>
+  >((map, item) => {
+    map.set(item.transaction_id, [...(map.get(item.transaction_id) ?? []), item]);
+    return map;
+  }, new Map());
+
+  return new Map(
+    data.transactions.map((transaction) => [
+      transaction.id,
+      Math.abs(
+        transactionAmountToUsd({
+          transaction,
+          eurUsdRate,
+          expenseItems: expenseItemsByTransaction.get(transaction.id) ?? [],
+          expoDetail: expoByTransaction.get(transaction.id),
+          rentalTourDetail: rentalByTransaction.get(transaction.id)
+        })
+      )
+    ])
+  );
 }
