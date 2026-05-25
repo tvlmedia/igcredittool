@@ -94,8 +94,8 @@ export function LocationAutocomplete({
     setLocationLabel(suggestion.locationLabel);
     setCity(suggestion.city);
     setCountry(suggestion.country);
-    setLatitude(suggestion.latitude);
-    setLongitude(suggestion.longitude);
+    setLatitude(normalizeCoordinateInput(suggestion.latitude));
+    setLongitude(normalizeCoordinateInput(suggestion.longitude));
     setSuggestions([]);
     setSearchState("idle");
     setHasSearched(false);
@@ -191,7 +191,7 @@ export function LocationAutocomplete({
             type="number"
             step="0.000001"
             value={latitude}
-            onChange={(event) => setLatitude(event.target.value)}
+            onChange={(event) => setLatitude(normalizeCoordinateInput(event.target.value))}
             placeholder="51.535000"
           />
         </Field>
@@ -201,7 +201,7 @@ export function LocationAutocomplete({
             type="number"
             step="0.000001"
             value={longitude}
-            onChange={(event) => setLongitude(event.target.value)}
+            onChange={(event) => setLongitude(normalizeCoordinateInput(event.target.value))}
             placeholder="5.630000"
           />
         </Field>
@@ -229,5 +229,9 @@ function stringValue(value: LocationValue["latitude"]) {
     return "";
   }
 
-  return String(value);
+  return normalizeCoordinateInput(String(value));
+}
+
+function normalizeCoordinateInput(value: string) {
+  return value.trim().replace(",", ".");
 }

@@ -252,12 +252,12 @@ function toMapPoint(transaction: TimelineEvent, projection: GeoProjection): MapP
     return null;
   }
 
-  const latitude = Number(transaction.latitude);
-  const longitude = Number(transaction.longitude);
+  const latitude = parseCoordinate(transaction.latitude);
+  const longitude = parseCoordinate(transaction.longitude);
 
   if (
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude) ||
+    latitude === null ||
+    longitude === null ||
     latitude < -90 ||
     latitude > 90 ||
     longitude < -180 ||
@@ -339,4 +339,18 @@ function MapTooltip({ point }: { point: MapPoint }) {
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
+}
+
+function parseCoordinate(value: string | number | null) {
+  if (value === null) {
+    return null;
+  }
+
+  const normalized = String(value).trim().replace(",", ".");
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
 }

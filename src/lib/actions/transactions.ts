@@ -576,7 +576,8 @@ function nullableNumberValue(value: FormDataEntryValue | null) {
     return null;
   }
 
-  const parsed = Number(value);
+  const normalized = value.trim().replace(",", ".");
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
