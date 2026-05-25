@@ -45,6 +45,8 @@ const typeOptions: Array<{
   { value: "purchase", icon: Save }
 ];
 
+const expoReminderTitle = "Credit expires";
+
 function getTodayDate() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -81,6 +83,8 @@ export function TransactionForm({
   const [date, setDate] = useState(getTodayDate);
   const [reminderDueDate, setReminderDueDate] = useState("");
   const [reminderWasExpoDefault, setReminderWasExpoDefault] = useState(false);
+  const [reminderTitle, setReminderTitle] = useState("");
+  const [reminderTitleWasExpoDefault, setReminderTitleWasExpoDefault] = useState(false);
 
   useEffect(() => {
     if (state.status === "success") {
@@ -118,11 +122,22 @@ export function TransactionForm({
   }
 
   function handleTypeChange(nextType: TransactionType) {
+    if (nextType === type) {
+      return;
+    }
+
     if (nextType === "expo") {
       setExpoReminderDefault(date);
+      setReminderTitle(expoReminderTitle);
+      setReminderTitleWasExpoDefault(true);
     } else if (type === "expo" && reminderWasExpoDefault) {
       setReminderDueDate("");
       setReminderWasExpoDefault(false);
+    }
+
+    if (type === "expo" && nextType !== "expo" && reminderTitleWasExpoDefault) {
+      setReminderTitle("");
+      setReminderTitleWasExpoDefault(false);
     }
 
     setType(nextType);
@@ -249,7 +264,15 @@ export function TransactionForm({
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Reminder title">
-            <Input name="reminderTitle" placeholder="Credit expires / invoice follow-up" />
+            <Input
+              name="reminderTitle"
+              placeholder="Credit expires / invoice follow-up"
+              value={reminderTitle}
+              onChange={(event) => {
+                setReminderTitle(event.target.value);
+                setReminderTitleWasExpoDefault(false);
+              }}
+            />
           </Field>
           <Field label="Reminder notes">
             <Input name="reminderNotes" placeholder="Optional" />
