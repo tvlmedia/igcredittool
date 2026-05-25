@@ -48,7 +48,7 @@ export default async function TransactionsPage() {
         <ReminderPanel reminders={data.reminders} />
       </div>
 
-      <Timeline transactions={data.transactions} />
+      <Timeline transactions={data.transactions} reminders={data.reminders} />
     </div>
   );
 }

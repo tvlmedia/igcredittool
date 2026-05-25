@@ -40,7 +40,7 @@ export default async function DashboardPage() {
       {liveData.transactions.length > 0 ? <CreditCharts data={liveData} /> : <EmptyState />}
       <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
         <TransactionForm sourceTransactions={liveData.sourceTransactions} />
-        <Timeline transactions={liveData.transactions} compact />
+        <Timeline transactions={liveData.transactions} reminders={liveData.reminders} compact />
       </div>
     </div>
   );

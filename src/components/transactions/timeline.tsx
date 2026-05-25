@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Calendar, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { Calendar, Clock3, MapPin, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -16,7 +16,7 @@ import {
 } from "@/lib/actions/transactions";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { Currency, TimelineEvent, TransactionType } from "@/lib/types/domain";
+import type { Currency, Reminder, TimelineEvent, TransactionType } from "@/lib/types/domain";
 import { transactionTypeColors, transactionTypeLabels } from "@/lib/types/domain";
 
 const initialUpdateState: TransactionActionState = {
@@ -26,10 +26,12 @@ const initialUpdateState: TransactionActionState = {
 
 export function Timeline({
   transactions,
+  reminders = [],
   compact = false,
   mode = "active"
 }: {
   transactions: TimelineEvent[];
+  reminders?: Reminder[];
   compact?: boolean;
   mode?: "active" | "deleted";
 }) {
@@ -49,6 +51,13 @@ export function Timeline({
         .map((transaction) => ({ id: transaction.id, title: transaction.title })),
     [transactions]
   );
+  const remindersByTransaction = useMemo(() => {
+    const rows = reminders
+      .filter((reminder) => reminder.status === "open" && reminder.transaction_id)
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+
+    return new Map(rows.map((reminder) => [reminder.transaction_id, reminder]));
+  }, [reminders]);
 
   const filtered = useMemo(() => {
     return transactions.filter((transaction) => {
@@ -166,12 +175,15 @@ export function Timeline({
               ? formatCurrency(convertedAmountUsd, "USD")
               : null;
           const typeColor = transactionTypeColors[transaction.type];
+          const location = getLocationLabel(transaction);
+          const reminder = remindersByTransaction.get(transaction.id);
+          const urgency = reminder ? getReminderUrgency(daysUntil(reminder.due_date)) : null;
 
           return (
             <article
               key={transaction.id}
               id={`transaction-${transaction.id}`}
-              className="grid gap-4 rounded-lg border border-l-2 border-white/10 bg-gradient-to-b from-white/[0.045] to-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition duration-200 hover:border-iron-400/18 hover:bg-white/[0.055] md:grid-cols-[150px_1fr_auto]"
+              className="grid gap-4 rounded-lg border border-l-2 border-white/10 bg-gradient-to-b from-white/[0.045] to-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition duration-200 hover:-translate-y-0.5 hover:border-iron-400/24 hover:bg-white/[0.055] md:grid-cols-[150px_1fr_auto]"
               style={{
                 borderLeftColor: typeColor.core,
                 boxShadow: `inset 8px 0 22px ${typeColor.glow}`
@@ -184,6 +196,12 @@ export function Timeline({
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold text-white">{transaction.title}</h3>
                   <TypeBadge type={transaction.type} />
+                  {location ? (
+                    <Badge>
+                      <MapPin size={13} />
+                      {location}
+                    </Badge>
+                  ) : null}
                   {transaction.linkedTitle ? <Badge>Source: {transaction.linkedTitle}</Badge> : null}
                 </div>
                 {transaction.description ? (
@@ -203,6 +221,18 @@ export function Timeline({
                       <Calendar size={13} />
                       Google Calendar
                     </a>
+                  ) : null}
+                  {reminder && urgency ? (
+                    <Badge
+                      style={{
+                        borderColor: urgency.border,
+                        backgroundColor: urgency.background,
+                        color: urgency.text
+                      }}
+                    >
+                      <Clock3 size={13} />
+                      {formatReminderStatus(daysUntil(reminder.due_date))}
+                    </Badge>
                   ) : null}
                 </div>
               </div>
@@ -291,6 +321,56 @@ function TypeBadge({ type }: { type: TransactionType }) {
       {transactionTypeLabels[type]}
     </Badge>
   );
+}
+
+function getLocationLabel(transaction: TimelineEvent) {
+  const cityCountry = [transaction.city, transaction.country].filter(Boolean).join(", ");
+  return cityCountry || transaction.location_label || "";
+}
+
+function daysUntil(date: string) {
+  const today = new Date();
+  const start = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const due = new Date(`${date}T00:00:00`);
+  const dueDate = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
+
+  return Math.ceil((dueDate - start) / 86_400_000);
+}
+
+function formatReminderStatus(days: number) {
+  if (days < 0) {
+    return `${Math.abs(days)} days overdue`;
+  }
+
+  if (days === 0) {
+    return "expires today";
+  }
+
+  return `expires in ${days} days`;
+}
+
+function getReminderUrgency(days: number) {
+  if (days < 30) {
+    return {
+      text: "#fecaca",
+      border: "rgba(248,113,113,0.36)",
+      background: "rgba(248,113,113,0.1)"
+    };
+  }
+
+  if (days < 90) {
+    return {
+      text: "#fed7aa",
+      border: "rgba(245,158,66,0.34)",
+      background: "rgba(245,158,66,0.1)"
+    };
+  }
+
+  return {
+    text: "#d8c18a",
+    border: "rgba(225,180,95,0.22)",
+    background: "rgba(225,180,95,0.07)"
+  };
 }
 
 function EditTransactionForm({
