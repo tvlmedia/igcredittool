@@ -35,6 +35,7 @@ import {
 } from "@/lib/actions/transactions";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { isActiveReminder } from "@/lib/reminders";
 import type {
   Currency,
   DashboardData,
@@ -88,7 +89,7 @@ export function Timeline({
   );
   const remindersByTransaction = useMemo(() => {
     const rows = reminders
-      .filter((reminder) => reminder.status === "open" && reminder.transaction_id)
+      .filter((reminder) => isActiveReminder(reminder) && reminder.transaction_id)
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
 
     return new Map(rows.map((reminder) => [reminder.transaction_id, reminder]));

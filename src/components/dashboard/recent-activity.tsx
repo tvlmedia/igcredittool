@@ -9,7 +9,10 @@ const actionLabels: Record<string, string> = {
   transaction_restored: "Transaction restored",
   profile_updated: "Profile updated",
   owned_lens_added: "Lens added",
-  owned_lens_removed: "Lens removed"
+  owned_lens_removed: "Lens removed",
+  reminder_updated: "Reminder updated",
+  monthly_report_generated: "Monthly report generated",
+  monthly_report_resent: "Monthly report resent"
 };
 
 export function RecentActivity({ activities }: { activities: ActivityLog[] }) {

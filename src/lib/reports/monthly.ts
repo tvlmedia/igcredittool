@@ -5,6 +5,7 @@ import {
 } from "@/lib/calculations";
 import { getDashboardData, getDeletedTransactions, getProfile } from "@/lib/data/queries";
 import { getLiveEurUsdRate, type LiveFxRate } from "@/lib/fx";
+import { isActiveReminder } from "@/lib/reminders";
 import { createClient } from "@/lib/supabase/server";
 import type { CreditSnapshot, DashboardData, TimelineEvent } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
@@ -382,7 +383,7 @@ function buildUpcomingExpirations(data: DashboardData) {
   const transactionsById = new Map(data.transactions.map((transaction) => [transaction.id, transaction]));
 
   return data.reminders
-    .filter((reminder) => reminder.status === "open")
+    .filter(isActiveReminder)
     .map((reminder) => {
       const transaction = reminder.transaction_id
         ? transactionsById.get(reminder.transaction_id) ?? null

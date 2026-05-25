@@ -9,6 +9,8 @@ export type TransactionType =
 
 export type ProfileRole = "ambassador" | "admin";
 
+export type ReminderStatus = "open" | "followed_up" | "used" | "extended" | "ignored";
+
 export type Profile = {
   id: string;
   email: string | null;
@@ -155,7 +157,7 @@ export type Reminder = {
   transaction_id: string | null;
   title: string;
   due_date: string;
-  status: "open" | "done";
+  status: ReminderStatus;
   notes: string | null;
 };
 

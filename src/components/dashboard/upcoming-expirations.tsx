@@ -2,7 +2,9 @@ import { CalendarPlus, ExternalLink, Timer } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Panel, SectionHeader } from "@/components/ui/panel";
+import { ReminderWorkflowActions } from "@/components/transactions/reminder-workflow-actions";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { isActiveReminder } from "@/lib/reminders";
 import type { DashboardData, Reminder, TimelineEvent } from "@/lib/types/domain";
 
 export function UpcomingExpirations({
@@ -14,7 +16,7 @@ export function UpcomingExpirations({
 }) {
   const transactionsById = new Map(transactions.map((transaction) => [transaction.id, transaction]));
   const upcoming = reminders
-    .filter((reminder) => reminder.status === "open")
+    .filter(isActiveReminder)
     .map((reminder) => ({
       reminder,
       transaction: reminder.transaction_id
@@ -61,6 +63,7 @@ export function UpcomingExpirations({
                     {formatDays(days)}
                   </Badge>
                   {transaction ? <Badge>{transaction.title}</Badge> : null}
+                  <Badge className="capitalize">{reminder.status.replaceAll("_", " ")}</Badge>
                 </div>
 
                 <h3 className="mt-3 font-semibold text-white">{reminder.title}</h3>
@@ -76,6 +79,7 @@ export function UpcomingExpirations({
                 {reminder.notes ? (
                   <p className="mt-2 text-sm leading-5 text-white/48">{reminder.notes}</p>
                 ) : null}
+                <ReminderWorkflowActions reminderId={reminder.id} notes={reminder.notes} />
               </div>
 
               <div className="flex flex-wrap items-start justify-end gap-2">
