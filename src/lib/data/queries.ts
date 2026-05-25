@@ -5,6 +5,7 @@ import type {
   DashboardData,
   ExpenseItem,
   ExpoDetail,
+  OwnedLens,
   Profile,
   PurchaseDetail,
   Reminder,
@@ -29,6 +30,21 @@ export async function getProfile(userId: string) {
     .maybeSingle();
 
   return data as Profile | null;
+}
+
+export async function getOwnedLenses(userId: string): Promise<OwnedLens[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("owned_lenses")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []) as OwnedLens[];
 }
 
 export async function getDashboardData(userId?: string): Promise<DashboardData> {

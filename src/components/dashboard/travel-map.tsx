@@ -29,16 +29,17 @@ const height = 520;
 const minZoom = 1;
 const maxZoom = 4.5;
 const zoomStep = 1.35;
-const homeBase = {
-  label: "Beek en Donk, Netherlands",
-  latitude: 51.535,
-  longitude: 5.63
-};
 
 type MapTransform = {
   scale: number;
   x: number;
   y: number;
+};
+
+export type TravelMapHomeBase = {
+  label: string;
+  latitude: number;
+  longitude: number;
 };
 
 const defaultMapTransform: MapTransform = {
@@ -72,7 +73,13 @@ const countryBorders = mesh(
   (a, b) => a !== b
 );
 
-export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
+export function TravelMap({
+  transactions,
+  homeBase
+}: {
+  transactions: TimelineEvent[];
+  homeBase: TravelMapHomeBase | null;
+}) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [transform, setTransform] = useState<MapTransform>(defaultMapTransform);
   const [isDragging, setIsDragging] = useState(false);
@@ -84,7 +91,7 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
   } | null>(null);
   const projection = useMemo(() => createProjection(), []);
   const paths = useMemo(() => buildMapPaths(projection), [projection]);
-  const home = projection([homeBase.longitude, homeBase.latitude]) ?? [512, 170];
+  const home = homeBase ? projection([homeBase.longitude, homeBase.latitude]) : null;
   const points = useMemo(
     () =>
       transactions
@@ -260,32 +267,36 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
             <path d={paths.land} fill="rgba(129,139,151,0.18)" stroke="rgba(255,255,255,0.09)" />
             <path d={paths.borders} fill="none" stroke="rgba(255,255,255,0.075)" strokeWidth="0.55" />
 
-            {points.map((point) => {
-              const color = transactionTypeColors[point.type];
+            {homeBase && home
+              ? points.map((point) => {
+                  const color = transactionTypeColors[point.type];
 
-              return (
-                <path
-                  key={`route-${point.id}`}
-                  d={buildRoutePath(projection, point)}
-                  className="travel-route"
-                  fill="none"
-                  stroke={color.core}
-                  strokeWidth={hoveredId === point.id ? "1.85" : "1.15"}
-                  strokeLinecap="round"
-                  filter="url(#route-glow)"
-                  opacity={hoveredId && hoveredId !== point.id ? "0.28" : "0.62"}
-                />
-              );
-            })}
+                  return (
+                    <path
+                      key={`route-${point.id}`}
+                      d={buildRoutePath(projection, point, homeBase)}
+                      className="travel-route"
+                      fill="none"
+                      stroke={color.core}
+                      strokeWidth={hoveredId === point.id ? "1.85" : "1.15"}
+                      strokeLinecap="round"
+                      filter="url(#route-glow)"
+                      opacity={hoveredId && hoveredId !== point.id ? "0.28" : "0.62"}
+                    />
+                  );
+                })
+              : null}
 
-            <g transform={`translate(${home[0]} ${home[1]})`}>
-              <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
-              <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
-              <circle r="2.2" fill="#fff7ed" />
-              <text x="14" y="-12" fill="rgba(255,255,255,0.72)" fontSize="12" letterSpacing="0.04em">
-                Home base
-              </text>
-            </g>
+            {homeBase && home ? (
+              <g transform={`translate(${home[0]} ${home[1]})`}>
+                <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
+                <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
+                <circle r="2.2" fill="#fff7ed" />
+                <text x="14" y="-12" fill="rgba(255,255,255,0.72)" fontSize="12" letterSpacing="0.04em">
+                  {homeBase.label}
+                </text>
+              </g>
+            ) : null}
 
             {points.map((point) => {
               const color = transactionTypeColors[point.type];
@@ -319,6 +330,10 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
       {points.length === 0 ? (
         <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.035] p-5 text-sm text-white/48">
           Add city, country, latitude, and longitude to transactions to plot travel routes.
+        </div>
+      ) : !homeBase ? (
+        <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.035] p-5 text-sm text-white/48">
+          Add home base coordinates in Profile to draw travel routes.
         </div>
       ) : (
         <div className="mt-4 grid gap-2 md:grid-cols-5">
@@ -456,7 +471,11 @@ function toMapPoint(transaction: TimelineEvent, projection: GeoProjection): MapP
   };
 }
 
-function buildRoutePath(projection: GeoProjection, point: MapPoint) {
+function buildRoutePath(
+  projection: GeoProjection,
+  point: MapPoint,
+  homeBase: TravelMapHomeBase
+) {
   const interpolate = geoInterpolate(
     [homeBase.longitude, homeBase.latitude],
     [point.longitude, point.latitude]

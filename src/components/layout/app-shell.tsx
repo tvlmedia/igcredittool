@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { BarChart3, CircleDollarSign, LayoutDashboard, Shield, Sparkles } from "lucide-react";
+import { BarChart3, CircleDollarSign, LayoutDashboard, Shield, Sparkles, UserRound } from "lucide-react";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import type { Profile } from "@/lib/types/domain";
 
@@ -8,6 +8,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: CircleDollarSign },
   { href: "/insights", label: "Insights", icon: Sparkles },
+  { href: "/profile", label: "Profile", icon: UserRound },
   { href: "/admin", label: "Admin", icon: Shield }
 ] as const;
 

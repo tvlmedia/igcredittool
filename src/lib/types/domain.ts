@@ -14,7 +14,27 @@ export type Profile = {
   email: string | null;
   full_name: string | null;
   company: string | null;
+  home_base_city: string | null;
+  home_base_country: string | null;
+  home_base_latitude: number | null;
+  home_base_longitude: number | null;
+  website: string | null;
+  instagram: string | null;
+  youtube: string | null;
+  vimeo: string | null;
+  facebook: string | null;
+  linkedin: string | null;
   role: ProfileRole;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OwnedLens = {
+  id: string;
+  user_id: string;
+  brand: string;
+  model: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
