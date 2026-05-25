@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentType, useActionState, useEffect, useMemo, useState } from "react";
+import { type ComponentType, useActionState, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   CalendarPlus,
@@ -45,6 +45,27 @@ const typeOptions: Array<{
   { value: "purchase", icon: Save }
 ];
 
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addMonthsToDate(dateValue: string, months: number) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if (!year || !month || !day) {
+    return "";
+  }
+
+  const targetMonth = month - 1 + months;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const targetMonthIndex = targetMonth % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate();
+  const targetDate = new Date(
+    Date.UTC(targetYear, targetMonthIndex, Math.min(day, lastDay))
+  );
+
+  return targetDate.toISOString().slice(0, 10);
+}
+
 export function TransactionForm({
   sourceTransactions
 }: {
@@ -57,7 +78,9 @@ export function TransactionForm({
   const [expenses, setExpenses] = useState<ExpenseDraft[]>([
     { id: "initial-expense", label: "Hotel", amount: "", currency: "EUR" }
   ]);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [date, setDate] = useState(getTodayDate);
+  const [reminderDueDate, setReminderDueDate] = useState("");
+  const [reminderWasExpoDefault, setReminderWasExpoDefault] = useState(false);
 
   useEffect(() => {
     if (state.status === "success") {
@@ -89,6 +112,22 @@ export function TransactionForm({
       }))
   );
 
+  function setExpoReminderDefault(nextDate: string) {
+    setReminderDueDate(addMonthsToDate(nextDate, 11));
+    setReminderWasExpoDefault(true);
+  }
+
+  function handleTypeChange(nextType: TransactionType) {
+    if (nextType === "expo") {
+      setExpoReminderDefault(date);
+    } else if (type === "expo" && reminderWasExpoDefault) {
+      setReminderDueDate("");
+      setReminderWasExpoDefault(false);
+    }
+
+    setType(nextType);
+  }
+
   return (
     <Panel>
       <SectionHeader eyebrow="Ledger" title="Add credit event" />
@@ -105,7 +144,7 @@ export function TransactionForm({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setType(option.value)}
+                onClick={() => handleTypeChange(option.value)}
                 className={`flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
                   active
                     ? "border-iron-400/45 bg-iron-400/14 text-iron-300"
@@ -124,7 +163,19 @@ export function TransactionForm({
             <Input name="title" required placeholder="Follow-up sale" />
           </Field>
           <Field label="Date">
-            <Input name="date" type="date" required defaultValue={today} />
+            <Input
+              name="date"
+              type="date"
+              required
+              value={date}
+              onChange={(event) => {
+                const nextDate = event.target.value;
+                setDate(nextDate);
+                if (type === "expo") {
+                  setExpoReminderDefault(nextDate);
+                }
+              }}
+            />
           </Field>
           <Field label="EUR to USD rate">
             <Input
@@ -184,7 +235,15 @@ export function TransactionForm({
             <Input name="tags" placeholder="Trade show, city, lens brand" />
           </Field>
           <Field label="Reminder date">
-            <Input name="reminderDueDate" type="date" />
+            <Input
+              name="reminderDueDate"
+              type="date"
+              value={reminderDueDate}
+              onChange={(event) => {
+                setReminderDueDate(event.target.value);
+                setReminderWasExpoDefault(false);
+              }}
+            />
           </Field>
         </div>
 
