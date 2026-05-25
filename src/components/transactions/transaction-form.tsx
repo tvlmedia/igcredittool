@@ -52,8 +52,8 @@ export function TransactionForm({
 }) {
   const [state, formAction, pending] = useActionState(createTransaction, initialState);
   const [type, setType] = useState<TransactionType>("sale");
-  const [daysCount, setDaysCount] = useState(3);
-  const [dailyCredits, setDailyCredits] = useState<number[]>([1000, 1000, 1000]);
+  const [daysCount, setDaysCount] = useState(1);
+  const [dailyCredits, setDailyCredits] = useState<number[]>([1000]);
   const [expenses, setExpenses] = useState<ExpenseDraft[]>([
     { id: "initial-expense", label: "Hotel", amount: "", currency: "EUR" }
   ]);
