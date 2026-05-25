@@ -45,7 +45,8 @@ const typeOptions: Array<{
   { value: "purchase", icon: Save }
 ];
 
-const expoReminderTitle = "Credit expires";
+const creditReminderTitle = "Credit Expires";
+const purchaseReminderTitle = "Payment follow-up";
 
 function getTodayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -68,6 +69,14 @@ function addMonthsToDate(dateValue: string, months: number) {
   return targetDate.toISOString().slice(0, 10);
 }
 
+function getDefaultReminderDate(dateValue: string) {
+  return addMonthsToDate(dateValue, 11);
+}
+
+function getDefaultReminderTitle(type: TransactionType) {
+  return type === "purchase" ? purchaseReminderTitle : creditReminderTitle;
+}
+
 export function TransactionForm({
   sourceTransactions
 }: {
@@ -81,10 +90,11 @@ export function TransactionForm({
     { id: "initial-expense", label: "Hotel", amount: "", currency: "EUR" }
   ]);
   const [date, setDate] = useState(getTodayDate);
-  const [reminderDueDate, setReminderDueDate] = useState("");
-  const [reminderWasExpoDefault, setReminderWasExpoDefault] = useState(false);
-  const [reminderTitle, setReminderTitle] = useState("");
-  const [reminderTitleWasExpoDefault, setReminderTitleWasExpoDefault] = useState(false);
+  const [reminderDueDate, setReminderDueDate] = useState(() =>
+    getDefaultReminderDate(getTodayDate())
+  );
+  const [reminderTitle, setReminderTitle] = useState(() => getDefaultReminderTitle("sale"));
+  const [reminderTitleWasDefault, setReminderTitleWasDefault] = useState(true);
 
   useEffect(() => {
     if (state.status === "success") {
@@ -116,28 +126,13 @@ export function TransactionForm({
       }))
   );
 
-  function setExpoReminderDefault(nextDate: string) {
-    setReminderDueDate(addMonthsToDate(nextDate, 11));
-    setReminderWasExpoDefault(true);
-  }
-
   function handleTypeChange(nextType: TransactionType) {
     if (nextType === type) {
       return;
     }
 
-    if (nextType === "expo") {
-      setExpoReminderDefault(date);
-      setReminderTitle(expoReminderTitle);
-      setReminderTitleWasExpoDefault(true);
-    } else if (type === "expo" && reminderWasExpoDefault) {
-      setReminderDueDate("");
-      setReminderWasExpoDefault(false);
-    }
-
-    if (type === "expo" && nextType !== "expo" && reminderTitleWasExpoDefault) {
-      setReminderTitle("");
-      setReminderTitleWasExpoDefault(false);
+    if (reminderTitleWasDefault) {
+      setReminderTitle(getDefaultReminderTitle(nextType));
     }
 
     setType(nextType);
@@ -186,9 +181,7 @@ export function TransactionForm({
               onChange={(event) => {
                 const nextDate = event.target.value;
                 setDate(nextDate);
-                if (type === "expo") {
-                  setExpoReminderDefault(nextDate);
-                }
+                setReminderDueDate(getDefaultReminderDate(nextDate));
               }}
             />
           </Field>
@@ -256,7 +249,6 @@ export function TransactionForm({
               value={reminderDueDate}
               onChange={(event) => {
                 setReminderDueDate(event.target.value);
-                setReminderWasExpoDefault(false);
               }}
             />
           </Field>
@@ -266,11 +258,11 @@ export function TransactionForm({
           <Field label="Reminder title">
             <Input
               name="reminderTitle"
-              placeholder="Credit expires / invoice follow-up"
+              placeholder="Credit Expires / Payment follow-up"
               value={reminderTitle}
               onChange={(event) => {
                 setReminderTitle(event.target.value);
-                setReminderTitleWasExpoDefault(false);
+                setReminderTitleWasDefault(false);
               }}
             />
           </Field>
