@@ -1,6 +1,7 @@
 import { buildDashboardData } from "@/lib/calculations";
 import { getDefaultEurUsdRate } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   DashboardData,
   ActivityLog,
@@ -23,8 +24,8 @@ type TransactionTagRow = {
   tag_id: string;
 };
 
-export async function getProfile(userId: string) {
-  const supabase = await createClient();
+export async function getProfile(userId: string, client?: SupabaseClient) {
+  const supabase = await createQueryClient(client);
   const { data } = await supabase
     .from("profiles")
     .select("*")
@@ -34,8 +35,11 @@ export async function getProfile(userId: string) {
   return data as Profile | null;
 }
 
-export async function getOwnedLenses(userId: string): Promise<OwnedLens[]> {
-  const supabase = await createClient();
+export async function getOwnedLenses(
+  userId: string,
+  client?: SupabaseClient
+): Promise<OwnedLens[]> {
+  const supabase = await createQueryClient(client);
   const { data, error } = await supabase
     .from("owned_lenses")
     .select("*")
@@ -49,8 +53,12 @@ export async function getOwnedLenses(userId: string): Promise<OwnedLens[]> {
   return (data ?? []) as OwnedLens[];
 }
 
-export async function getRecentActivity(userId: string, limit = 8): Promise<ActivityLog[]> {
-  const supabase = await createClient();
+export async function getRecentActivity(
+  userId: string,
+  limit = 8,
+  client?: SupabaseClient
+): Promise<ActivityLog[]> {
+  const supabase = await createQueryClient(client);
   const { data, error } = await supabase
     .from("activity_log")
     .select("*")
@@ -65,8 +73,11 @@ export async function getRecentActivity(userId: string, limit = 8): Promise<Acti
   return (data ?? []) as ActivityLog[];
 }
 
-export async function getDashboardData(userId?: string): Promise<DashboardData> {
-  const supabase = await createClient();
+export async function getDashboardData(
+  userId?: string,
+  client?: SupabaseClient
+): Promise<DashboardData> {
+  const supabase = await createQueryClient(client);
   const scopedTransactions = supabase
     .from("transactions")
     .select("*")
@@ -150,8 +161,11 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
   });
 }
 
-export async function getDeletedTransactions(userId: string): Promise<TimelineEvent[]> {
-  const supabase = await createClient();
+export async function getDeletedTransactions(
+  userId: string,
+  client?: SupabaseClient
+): Promise<TimelineEvent[]> {
+  const supabase = await createQueryClient(client);
   const { data: transactionData } = await supabase
     .from("transactions")
     .select("*")
@@ -197,14 +211,18 @@ export async function getDeletedTransactions(userId: string): Promise<TimelineEv
   });
 }
 
-export async function getAdminProfiles() {
-  const supabase = await createClient();
+export async function getAdminProfiles(client?: SupabaseClient) {
+  const supabase = await createQueryClient(client);
   const { data } = await supabase
     .from("profiles")
     .select("*")
     .order("created_at", { ascending: false });
 
   return (data ?? []) as Profile[];
+}
+
+async function createQueryClient(client?: SupabaseClient) {
+  return client ?? (await createClient());
 }
 
 function normalizeExpoDetails(details: ExpoDetail[]) {

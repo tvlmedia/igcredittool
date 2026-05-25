@@ -8,6 +8,7 @@ import { getLiveEurUsdRate, type LiveFxRate } from "@/lib/fx";
 import { createClient } from "@/lib/supabase/server";
 import type { CreditSnapshot, DashboardData, TimelineEvent } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ReportPeriod = {
   start: string;
@@ -93,12 +94,13 @@ export async function generateMonthlyCreditReport(input: {
   userId: string;
   period?: ReportPeriod;
   fx?: LiveFxRate;
+  client?: SupabaseClient;
 }): Promise<MonthlyCreditReport> {
   const period = input.period ?? getPreviousMonthPeriod();
   const [data, profile, deletedTransactions, fx] = await Promise.all([
-    getDashboardData(input.userId),
-    getProfile(input.userId),
-    getDeletedTransactions(input.userId),
+    getDashboardData(input.userId, input.client),
+    getProfile(input.userId, input.client),
+    getDeletedTransactions(input.userId, input.client),
     input.fx ? Promise.resolve(input.fx) : getLiveEurUsdRate()
   ]);
   const liveMetrics = buildLiveFxMetrics(data, fx.rate);
@@ -112,8 +114,8 @@ export async function generateMonthlyCreditReport(input: {
   }));
   const countries = uniqueValues(monthTransactions.map((transaction) => transaction.country));
   const cities = uniqueValues(monthTransactions.map((transaction) => transaction.city));
-  const openingSnapshot = await getOpeningSnapshot(input.userId, period.start);
-  const activitySummary = await getActivitySummary(input.userId, period);
+  const openingSnapshot = await getOpeningSnapshot(input.userId, period.start, input.client);
+  const activitySummary = await getActivitySummary(input.userId, period, input.client);
   const creditsEarnedThisMonth = monthCalculations.reduce(
     (sum, item) => sum + Math.max(item.calculation?.usdEquivalent ?? 0, 0),
     0
@@ -241,6 +243,39 @@ export function formatReportMonth(periodStart: string) {
   }).format(new Date(`${periodStart}T00:00:00Z`));
 }
 
+export async function saveCreditSnapshot(
+  report: MonthlyCreditReport,
+  client?: SupabaseClient
+) {
+  const supabase = client ?? (await createClient());
+  const { data, error } = await supabase
+    .from("credit_snapshots")
+    .upsert(report.snapshot, { onConflict: "user_id,year,month" })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as CreditSnapshot;
+}
+
+export async function markCreditSnapshotEmailed(
+  snapshotId: string,
+  client?: SupabaseClient
+) {
+  const supabase = client ?? (await createClient());
+  const { error } = await supabase
+    .from("credit_snapshots")
+    .update({ emailed_at: new Date().toISOString() })
+    .eq("id", snapshotId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 function buildCalculationMap(data: DashboardData, eurUsdRate: number) {
   const saleByTransaction = new Map(data.saleDetails.map((detail) => [detail.transaction_id, detail]));
   const expoByTransaction = new Map(data.expoDetails.map((detail) => [detail.transaction_id, detail]));
@@ -364,8 +399,8 @@ function buildUpcomingExpirations(data: DashboardData) {
     .slice(0, 8);
 }
 
-async function getOpeningSnapshot(userId: string, periodStart: string) {
-  const supabase = await createClient();
+async function getOpeningSnapshot(userId: string, periodStart: string, client?: SupabaseClient) {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("credit_snapshots")
     .select("*")
@@ -382,8 +417,8 @@ async function getOpeningSnapshot(userId: string, periodStart: string) {
   return data as CreditSnapshot | null;
 }
 
-async function getActivitySummary(userId: string, period: ReportPeriod) {
-  const supabase = await createClient();
+async function getActivitySummary(userId: string, period: ReportPeriod, client?: SupabaseClient) {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("activity_log")
     .select("action,label,created_at")
