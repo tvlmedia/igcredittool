@@ -28,10 +28,10 @@ export function CreditCharts({ data }: { data: DashboardData }) {
         <div className="h-[330px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data.growth} margin={{ left: 8, right: 16, top: 8, bottom: 8 }}>
-              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.42)" tickLine={false} />
+              <CartesianGrid stroke="rgba(230,132,46,0.08)" vertical={false} />
+              <XAxis dataKey="date" stroke="rgba(255,248,236,0.42)" tickLine={false} />
               <YAxis
-                stroke="rgba(255,255,255,0.42)"
+                stroke="rgba(255,248,236,0.42)"
                 tickFormatter={(value) => formatCompactCurrency(Number(value), "USD")}
                 tickLine={false}
                 axisLine={false}
@@ -64,15 +64,15 @@ export function CreditCharts({ data }: { data: DashboardData }) {
         <div className="h-[330px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data.breakdown}>
-              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <CartesianGrid stroke="rgba(230,132,46,0.08)" vertical={false} />
               <XAxis
                 dataKey="type"
-                stroke="rgba(255,255,255,0.42)"
+                stroke="rgba(255,248,236,0.42)"
                 tickFormatter={(value) => transactionTypeLabels[value as keyof typeof transactionTypeLabels]}
                 tickLine={false}
               />
               <YAxis
-                stroke="rgba(255,255,255,0.42)"
+                stroke="rgba(255,248,236,0.42)"
                 tickFormatter={(value) => formatCompactCurrency(Number(value), "USD")}
                 tickLine={false}
                 axisLine={false}
@@ -125,10 +125,10 @@ export function CreditCharts({ data }: { data: DashboardData }) {
                   <stop offset="95%" stopColor="#77f2d5" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-              <XAxis dataKey="name" stroke="rgba(255,255,255,0.42)" tickLine={false} />
+              <CartesianGrid stroke="rgba(230,132,46,0.08)" vertical={false} />
+              <XAxis dataKey="name" stroke="rgba(255,248,236,0.42)" tickLine={false} />
               <YAxis
-                stroke="rgba(255,255,255,0.42)"
+                stroke="rgba(255,248,236,0.42)"
                 tickFormatter={(value) => formatCompactCurrency(Number(value), "USD")}
                 tickLine={false}
                 axisLine={false}
@@ -165,7 +165,7 @@ function ChartTooltip({ active, payload, label }: TooltipProps) {
   }
 
   return (
-    <div className="rounded-md border border-white/10 bg-carbon-900/95 p-3 text-sm shadow-panel">
+    <div className="rounded-md border border-iron-400/18 bg-carbon-900/95 p-3 text-sm shadow-panel">
       <p className="mb-2 font-semibold text-white">
         {typeof label === "string" && label in transactionTypeLabels
           ? transactionTypeLabels[label as keyof typeof transactionTypeLabels]
@@ -188,7 +188,7 @@ function ProfitTooltip({ active, payload, label }: TooltipProps) {
   const data = payload[0]?.payload as { roi?: number } | undefined;
 
   return (
-    <div className="rounded-md border border-white/10 bg-carbon-900/95 p-3 text-sm shadow-panel">
+    <div className="rounded-md border border-iron-400/18 bg-carbon-900/95 p-3 text-sm shadow-panel">
       <p className="mb-2 font-semibold text-white">{label}</p>
       {payload.map((item) => (
         <p key={item.name} className="text-white/68">

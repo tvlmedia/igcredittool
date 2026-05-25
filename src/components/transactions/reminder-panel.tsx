@@ -14,7 +14,7 @@ export function ReminderPanel({ reminders }: { reminders: Reminder[] }) {
         {openReminders.map((reminder) => (
           <div
             key={reminder.id}
-            className="flex items-start justify-between gap-4 rounded-md border border-white/10 bg-white/[0.045] p-4"
+            className="flex items-start justify-between gap-4 rounded-md border border-iron-400/12 bg-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
           >
             <div>
               <div className="flex items-center gap-2">
@@ -29,7 +29,7 @@ export function ReminderPanel({ reminders }: { reminders: Reminder[] }) {
           </div>
         ))}
         {openReminders.length === 0 ? (
-          <div className="rounded-md border border-white/10 bg-white/[0.035] p-5 text-sm text-white/48">
+          <div className="rounded-md border border-iron-400/12 bg-black/18 p-5 text-sm text-white/48">
             No open reminders.
           </div>
         ) : null}

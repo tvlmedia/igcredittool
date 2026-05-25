@@ -61,12 +61,12 @@ export function InsightGrid({ data }: { data: DashboardData }) {
           return (
             <div
               key={insight.label}
-              className="rounded-lg border border-white/10 bg-white/[0.045] p-4"
+              className="rounded-lg border border-iron-400/12 bg-gradient-to-b from-white/[0.045] to-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border border-iron-400/20 bg-iron-400/10 text-iron-300">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border border-iron-400/24 bg-iron-400/10 text-iron-300">
                 <Icon size={18} />
               </div>
-              <p className="text-xs uppercase tracking-[0.18em] text-white/38">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/36">
                 {insight.label}
               </p>
               <p className="mt-2 truncate text-xl font-semibold text-white">{insight.value}</p>

@@ -34,7 +34,7 @@ export default async function TransactionsPage() {
         <div className="flex flex-wrap gap-2">
           <Link
             href="/transactions/deleted"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.1]"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-iron-400/18 bg-white/[0.045] px-4 py-2 text-sm font-semibold text-white/86 transition hover:border-iron-400/34 hover:bg-iron-400/[0.08] hover:text-white"
           >
             <Trash2 size={16} />
             Deleted transactions

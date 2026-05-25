@@ -171,8 +171,8 @@ export function TravelMap({
         }
       />
 
-      <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#080a0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-        <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-md border border-white/10 bg-carbon-950/82 p-1 shadow-2xl shadow-black/35 backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-lg border border-iron-400/14 bg-[#050607] shadow-[inset_0_1px_0_rgba(255,248,236,0.05),0_24px_80px_rgba(0,0,0,0.36)]">
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-md border border-iron-400/16 bg-carbon-950/86 p-1 shadow-2xl shadow-black/40 backdrop-blur-xl">
           <ZoomControlButton
             ariaLabel="Zoom in"
             onClick={() => zoomMap(zoomStep)}
@@ -371,7 +371,7 @@ function ZoomControlButton({
       aria-label={ariaLabel}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-8 items-center justify-center rounded border border-white/10 bg-white/[0.06] text-sm font-semibold text-white/72 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:text-white/24 ${
+      className={`inline-flex h-8 items-center justify-center rounded border border-iron-400/14 bg-white/[0.055] text-sm font-semibold text-white/72 transition hover:border-iron-400/30 hover:bg-iron-400/[0.09] hover:text-white disabled:cursor-not-allowed disabled:text-white/24 ${
         wide ? "px-3" : "w-8"
       }`}
     >

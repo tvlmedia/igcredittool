@@ -10,13 +10,13 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-iron-500 text-carbon-950 shadow-glow hover:bg-iron-400 disabled:bg-white/20 disabled:text-white/45",
+    "border border-iron-300/20 bg-gradient-to-b from-iron-400 to-iron-600 text-[#100904] shadow-glow hover:from-iron-300 hover:to-iron-500 disabled:border-white/10 disabled:bg-none disabled:bg-white/12 disabled:text-white/35",
   secondary:
-    "border border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.1] disabled:text-white/35",
+    "border border-iron-400/18 bg-white/[0.045] text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-iron-400/34 hover:bg-iron-400/[0.08] hover:text-white disabled:text-white/35",
   ghost:
-    "text-white/70 hover:bg-white/[0.08] hover:text-white disabled:text-white/35",
+    "text-white/64 hover:bg-white/[0.065] hover:text-white disabled:text-white/35",
   danger:
-    "border border-red-400/20 bg-red-500/10 text-red-100 hover:bg-red-500/18 disabled:text-red-100/35"
+    "border border-red-300/18 bg-red-500/[0.075] text-red-100/88 hover:border-red-300/32 hover:bg-red-500/[0.13] disabled:text-red-100/35"
 };
 
 export function Button({
@@ -29,7 +29,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-iron-400/45 disabled:cursor-not-allowed",
+        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition duration-200 focus:outline-none focus:ring-2 focus:ring-iron-400/45 disabled:cursor-not-allowed",
         variants[variant],
         className
       )}

@@ -9,7 +9,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={clsx("glass-panel rounded-lg p-5", className)}>
+    <section className={clsx("glass-panel rounded-lg p-5 shadow-panel", className)}>
       {children}
     </section>
   );
@@ -25,10 +25,10 @@ export function SectionHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div className="relative z-[1] mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
         {eyebrow ? (
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-iron-300/70">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.24em] text-iron-300/72">
             {eyebrow}
           </p>
         ) : null}

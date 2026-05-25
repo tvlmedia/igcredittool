@@ -156,7 +156,7 @@ export function ProfileForm({
         />
         <div className="grid gap-3">
           {lensDrafts.length === 0 ? (
-            <div className="rounded-lg border border-white/10 bg-white/[0.035] p-5 text-sm text-white/48">
+            <div className="rounded-lg border border-iron-400/12 bg-black/18 p-5 text-sm text-white/48">
               No owned lenses yet.
             </div>
           ) : null}
@@ -164,7 +164,7 @@ export function ProfileForm({
           {lensDrafts.map((lens) => (
             <div
               key={lens.id}
-              className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-4 md:grid-cols-[1fr_1fr_auto]"
+              className="grid gap-4 rounded-lg border border-iron-400/12 bg-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] md:grid-cols-[1fr_1fr_auto]"
             >
               <Field label="Brand">
                 <Input

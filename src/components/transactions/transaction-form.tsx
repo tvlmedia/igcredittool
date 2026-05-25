@@ -161,8 +161,8 @@ export function TransactionForm({
                 onClick={() => handleTypeChange(option.value)}
                 className={`flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
                   active
-                    ? "border-iron-400/45 bg-iron-400/14 text-iron-300"
-                    : "border-white/10 bg-white/[0.045] text-white/58 hover:bg-white/[0.075] hover:text-white"
+                    ? "border-iron-400/38 bg-gradient-to-b from-iron-400/16 to-iron-600/8 text-iron-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    : "border-white/10 bg-black/18 text-white/56 hover:border-iron-400/22 hover:bg-white/[0.055] hover:text-white"
                 }`}
               >
                 <Icon size={16} />
@@ -416,9 +416,9 @@ function ExpenseList({
   setExpenses: (value: ExpenseDraft[]) => void;
 }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
+    <div className="rounded-lg border border-iron-400/12 bg-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-white">Expense list</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/48">Expense list</p>
         <Button
           type="button"
           variant="secondary"

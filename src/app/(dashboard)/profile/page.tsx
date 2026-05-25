@@ -46,12 +46,12 @@ export default async function ProfilePage() {
           return (
             <div
               key={item.label}
-              className="rounded-lg border border-white/10 bg-white/[0.055] p-4 shadow-panel"
+              className="rounded-lg border border-iron-400/12 bg-gradient-to-b from-white/[0.05] to-black/18 p-4 shadow-panel"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/[0.06] text-white/70">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border border-iron-400/18 bg-iron-400/[0.07] text-iron-300">
                 <Icon size={18} />
               </div>
-              <p className="text-xs uppercase tracking-[0.18em] text-white/38">{item.label}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/36">{item.label}</p>
               <p className="mt-2 text-2xl font-semibold text-white">{item.value}</p>
             </div>
           );

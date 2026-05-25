@@ -170,13 +170,15 @@ export function Timeline({
           return (
             <article
               key={transaction.id}
-              className="grid gap-4 rounded-lg border border-l-2 border-white/10 bg-white/[0.045] p-4 transition hover:bg-white/[0.065] md:grid-cols-[150px_1fr_auto]"
+              className="grid gap-4 rounded-lg border border-l-2 border-white/10 bg-gradient-to-b from-white/[0.045] to-black/18 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition duration-200 hover:border-iron-400/18 hover:bg-white/[0.055] md:grid-cols-[150px_1fr_auto]"
               style={{
                 borderLeftColor: typeColor.core,
                 boxShadow: `inset 8px 0 22px ${typeColor.glow}`
               }}
             >
-              <div className="text-sm text-white/48">{formatDate(transaction.date)}</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/42">
+                {formatDate(transaction.date)}
+              </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold text-white">{transaction.title}</h3>
@@ -203,8 +205,8 @@ export function Timeline({
                   ) : null}
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/38">Credit earned</p>
+              <div className="rounded-md border border-white/10 bg-black/18 p-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/36">Credit earned</p>
                 <p
                   className={`mt-1 text-xl font-semibold ${
                     transaction.original_amount < 0 ? "text-red-200" : "text-white"
@@ -212,7 +214,7 @@ export function Timeline({
                 >
                   {originalAmount}
                 </p>
-                <div className="mt-2 grid gap-1 text-xs text-white/45">
+                <div className="mt-2 grid gap-1 text-xs text-white/46">
                   <p>Currency: {transaction.currency}</p>
                   {usdEquivalent ? <p>USD equivalent: {usdEquivalent}</p> : null}
                 </div>
