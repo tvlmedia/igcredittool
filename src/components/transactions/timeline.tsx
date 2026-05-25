@@ -156,6 +156,16 @@ export function Timeline({
             Number(transaction.original_amount),
             transaction.currency
           );
+          const convertedAmountUsd =
+            transaction.converted_amount_usd === null
+              ? null
+              : Number(transaction.converted_amount_usd);
+          const usdEquivalent =
+            transaction.currency !== "USD" &&
+            convertedAmountUsd !== null &&
+            Number.isFinite(convertedAmountUsd)
+              ? formatCurrency(convertedAmountUsd, "USD")
+              : null;
           const typeColor = transactionTypeColors[transaction.type];
 
           return (
@@ -204,8 +214,8 @@ export function Timeline({
                   {originalAmount}
                 </p>
                 <div className="mt-2 grid gap-1 text-xs text-white/45">
-                  <p>Original amount: {originalAmount}</p>
                   <p>Currency: {transaction.currency}</p>
+                  {usdEquivalent ? <p>USD equivalent: {usdEquivalent}</p> : null}
                 </div>
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   {canEdit ? (
