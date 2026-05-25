@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent
+} from "react";
 import {
   geoEqualEarth,
   geoGraticule,
@@ -20,10 +27,25 @@ import { transactionTypeColors, transactionTypeLabels } from "@/lib/types/domain
 
 const width = 1000;
 const height = 520;
+const minZoom = 1;
+const maxZoom = 4.5;
+const zoomStep = 1.35;
 const homeBase = {
   label: "Beek en Donk, Netherlands",
   latitude: 51.535,
   longitude: 5.63
+};
+
+type MapTransform = {
+  scale: number;
+  x: number;
+  y: number;
+};
+
+const defaultMapTransform: MapTransform = {
+  scale: 1,
+  x: 0,
+  y: 0
 };
 
 type MapPoint = {
@@ -53,6 +75,14 @@ const countryBorders = mesh(
 
 export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [transform, setTransform] = useState<MapTransform>(defaultMapTransform);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    transform: MapTransform;
+  } | null>(null);
   const projection = useMemo(() => createProjection(), []);
   const paths = useMemo(() => buildMapPaths(projection), [projection]);
   const home = projection([homeBase.longitude, homeBase.latitude]) ?? [512, 170];
@@ -64,6 +94,69 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
     [projection, transactions]
   );
   const hoveredPoint = points.find((point) => point.id === hoveredId) ?? null;
+  const isZoomed = transform.scale > minZoom;
+
+  function zoomMap(factor: number, origin = { x: width / 2, y: height / 2 }) {
+    setTransform((current) => {
+      const nextScale = clamp(current.scale * factor, minZoom, maxZoom);
+      const worldX = (origin.x - current.x) / current.scale;
+      const worldY = (origin.y - current.y) / current.scale;
+
+      return clampMapTransform({
+        scale: nextScale,
+        x: origin.x - worldX * nextScale,
+        y: origin.y - worldY * nextScale
+      });
+    });
+  }
+
+  function handleWheel(event: ReactWheelEvent<SVGSVGElement>) {
+    event.preventDefault();
+    const origin = getSvgEventPoint(event);
+    zoomMap(Math.exp(-event.deltaY * 0.0012), origin);
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    if (event.button !== 0 || !isZoomed) {
+      return;
+    }
+
+    const start = getSvgEventPoint(event);
+    dragStartRef.current = {
+      pointerId: event.pointerId,
+      startX: start.x,
+      startY: start.y,
+      transform
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsDragging(true);
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    const dragStart = dragStartRef.current;
+    if (!dragStart || dragStart.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const current = getSvgEventPoint(event);
+    setTransform(
+      clampMapTransform({
+        scale: dragStart.transform.scale,
+        x: dragStart.transform.x + current.x - dragStart.startX,
+        y: dragStart.transform.y + current.y - dragStart.startY
+      })
+    );
+  }
+
+  function endDrag(event: ReactPointerEvent<SVGSVGElement>) {
+    if (dragStartRef.current?.pointerId === event.pointerId) {
+      dragStartRef.current = null;
+      setIsDragging(false);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    }
+  }
 
   return (
     <Panel>
@@ -79,11 +172,45 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
       />
 
       <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#080a0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-md border border-white/10 bg-carbon-950/82 p-1 shadow-2xl shadow-black/35 backdrop-blur-xl">
+          <ZoomControlButton
+            ariaLabel="Zoom in"
+            onClick={() => zoomMap(zoomStep)}
+            disabled={transform.scale >= maxZoom}
+          >
+            +
+          </ZoomControlButton>
+          <ZoomControlButton
+            ariaLabel="Zoom out"
+            onClick={() => zoomMap(1 / zoomStep)}
+            disabled={transform.scale <= minZoom}
+          >
+            -
+          </ZoomControlButton>
+          <ZoomControlButton
+            ariaLabel="Reset map zoom"
+            onClick={() => {
+              setTransform(defaultMapTransform);
+              setHoveredId(null);
+            }}
+            disabled={!isZoomed}
+            wide
+          >
+            Reset
+          </ZoomControlButton>
+        </div>
         <svg
           viewBox={`0 0 ${width} ${height}`}
           role="img"
           aria-label="Cinematic world travel map with transaction locations"
-          className="block aspect-[1.92/1] w-full"
+          className={`block aspect-[1.92/1] w-full touch-none ${
+            isZoomed ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-zoom-in"
+          }`}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
         >
           <defs>
             <radialGradient id="travel-vignette" cx="50%" cy="44%" r="72%">
@@ -135,63 +262,65 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
 
           <rect width={width} height={height} fill="url(#travel-vignette)" />
           <rect width={width} height={height} fill="url(#fine-grid)" opacity="0.78" />
-          <path d={paths.graticule} fill="none" stroke="rgba(255,255,255,0.045)" strokeWidth="0.8" />
-          <path d={paths.sphere} fill="rgba(255,255,255,0.018)" stroke="rgba(255,255,255,0.08)" />
-          <path d={paths.land} fill="rgba(129,139,151,0.18)" stroke="rgba(255,255,255,0.09)" />
-          <path d={paths.borders} fill="none" stroke="rgba(255,255,255,0.075)" strokeWidth="0.55" />
+          <g transform={`matrix(${transform.scale} 0 0 ${transform.scale} ${transform.x} ${transform.y})`}>
+            <path d={paths.graticule} fill="none" stroke="rgba(255,255,255,0.045)" strokeWidth="0.8" />
+            <path d={paths.sphere} fill="rgba(255,255,255,0.018)" stroke="rgba(255,255,255,0.08)" />
+            <path d={paths.land} fill="rgba(129,139,151,0.18)" stroke="rgba(255,255,255,0.09)" />
+            <path d={paths.borders} fill="none" stroke="rgba(255,255,255,0.075)" strokeWidth="0.55" />
 
-          {points.map((point) => {
-            const color = transactionTypeColors[point.type];
+            {points.map((point) => {
+              const color = transactionTypeColors[point.type];
 
-            return (
-              <path
-                key={`route-${point.id}`}
-                d={buildRoutePath(projection, point)}
-                className="travel-route"
-                fill="none"
-                stroke={color.core}
-                strokeWidth={hoveredId === point.id ? "1.85" : "1.15"}
-                strokeLinecap="round"
-                filter="url(#route-glow)"
-                opacity={hoveredId && hoveredId !== point.id ? "0.28" : "0.62"}
-              />
-            );
-          })}
+              return (
+                <path
+                  key={`route-${point.id}`}
+                  d={buildRoutePath(projection, point)}
+                  className="travel-route"
+                  fill="none"
+                  stroke={color.core}
+                  strokeWidth={hoveredId === point.id ? "1.85" : "1.15"}
+                  strokeLinecap="round"
+                  filter="url(#route-glow)"
+                  opacity={hoveredId && hoveredId !== point.id ? "0.28" : "0.62"}
+                />
+              );
+            })}
 
-          <g transform={`translate(${home[0]} ${home[1]})`}>
-            <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
-            <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
-            <circle r="2.2" fill="#fff7ed" />
-            <text x="14" y="-12" fill="rgba(255,255,255,0.72)" fontSize="12" letterSpacing="0.04em">
-              Home base
-            </text>
+            <g transform={`translate(${home[0]} ${home[1]})`}>
+              <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
+              <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
+              <circle r="2.2" fill="#fff7ed" />
+              <text x="14" y="-12" fill="rgba(255,255,255,0.72)" fontSize="12" letterSpacing="0.04em">
+                Home base
+              </text>
+            </g>
+
+            {points.map((point) => {
+              const color = transactionTypeColors[point.type];
+              const [x, y] = point.projected;
+
+              return (
+                <g
+                  key={point.id}
+                  transform={`translate(${x} ${y})`}
+                  onMouseEnter={() => setHoveredId(point.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onFocus={() => setHoveredId(point.id)}
+                  onBlur={() => setHoveredId(null)}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${point.title} in ${point.location}`}
+                  className="cursor-pointer outline-none"
+                >
+                  <circle className="travel-pulse" r="7" fill={color.glow} />
+                  <circle r="9" fill={color.glow} filter="url(#point-glow)" />
+                  <circle r={hoveredId === point.id ? "5.6" : "4.6"} fill={color.core} stroke="#090b0e" strokeWidth="2" />
+                </g>
+              );
+            })}
+
+            {hoveredPoint ? <MapTooltip point={hoveredPoint} /> : null}
           </g>
-
-          {points.map((point) => {
-            const color = transactionTypeColors[point.type];
-            const [x, y] = point.projected;
-
-            return (
-              <g
-                key={point.id}
-                transform={`translate(${x} ${y})`}
-                onMouseEnter={() => setHoveredId(point.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onFocus={() => setHoveredId(point.id)}
-                onBlur={() => setHoveredId(null)}
-                tabIndex={0}
-                role="button"
-                aria-label={`${point.title} in ${point.location}`}
-                className="cursor-pointer outline-none"
-              >
-                <circle className="travel-pulse" r="7" fill={color.glow} />
-                <circle r="9" fill={color.glow} filter="url(#point-glow)" />
-                <circle r={hoveredId === point.id ? "5.6" : "4.6"} fill={color.core} stroke="#090b0e" strokeWidth="2" />
-              </g>
-            );
-          })}
-
-          {hoveredPoint ? <MapTooltip point={hoveredPoint} /> : null}
         </svg>
       </div>
 
@@ -214,6 +343,63 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
       )}
     </Panel>
   );
+}
+
+function ZoomControlButton({
+  ariaLabel,
+  children,
+  disabled,
+  onClick,
+  wide = false
+}: {
+  ariaLabel: string;
+  children: ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+  wide?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex h-8 items-center justify-center rounded border border-white/10 bg-white/[0.06] text-sm font-semibold text-white/72 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:text-white/24 ${
+        wide ? "px-3" : "w-8"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function getSvgEventPoint(
+  event: ReactPointerEvent<SVGSVGElement> | ReactWheelEvent<SVGSVGElement>
+) {
+  const rect = event.currentTarget.getBoundingClientRect();
+
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * width,
+    y: ((event.clientY - rect.top) / rect.height) * height
+  };
+}
+
+function clampMapTransform(transform: MapTransform): MapTransform {
+  const scale = clamp(transform.scale, minZoom, maxZoom);
+
+  if (scale <= minZoom) {
+    return defaultMapTransform;
+  }
+
+  return {
+    scale,
+    x: clamp(transform.x, width - width * scale, 0),
+    y: clamp(transform.y, height - height * scale, 0)
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function createProjection() {
