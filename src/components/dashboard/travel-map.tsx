@@ -322,17 +322,6 @@ export function TravelMap({
             );
           })}
         </svg>
-        {homeBase && homeOverlay ? (
-          <div
-            className="pointer-events-none absolute z-10 hidden -translate-y-full translate-x-3 rounded-full border border-iron-400/18 bg-carbon-950/82 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/72 shadow-2xl shadow-black/30 backdrop-blur-xl md:block"
-            style={{
-              left: `${homeOverlay.xPercent}%`,
-              top: `${homeOverlay.yPercent}%`
-            }}
-          >
-            {homeBase.label}
-          </div>
-        ) : null}
         {hoveredPoint && hoveredOverlay ? (
           <MapTooltip point={hoveredPoint} position={hoveredOverlay} />
         ) : null}
