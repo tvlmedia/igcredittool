@@ -4,7 +4,8 @@ import { InsightGrid } from "@/components/dashboard/insight-grid";
 import { TripProfitability } from "@/components/dashboard/trip-profitability";
 import { TravelMap, type TravelMapHomeBase } from "@/components/dashboard/travel-map";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { getDashboardData, getProfile } from "@/lib/data/queries";
+import { SourceAnalytics } from "@/components/dashboard/source-analytics";
+import { getDashboardData, getOwnedLenses, getProfile } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types/domain";
 
@@ -20,7 +21,11 @@ export default async function InsightsPage() {
     redirect("/login");
   }
 
-  const [data, profile] = await Promise.all([getDashboardData(user.id), getProfile(user.id)]);
+  const [data, profile, lenses] = await Promise.all([
+    getDashboardData(user.id),
+    getProfile(user.id),
+    getOwnedLenses(user.id)
+  ]);
   const homeBase = buildHomeBase(profile);
 
   return (
@@ -33,6 +38,7 @@ export default async function InsightsPage() {
       </div>
       <InsightGrid data={data} />
       <TripProfitability data={data} />
+      <SourceAnalytics data={data} lenses={lenses} />
       <TravelMap transactions={data.transactions} homeBase={homeBase} />
       {data.transactions.length > 0 ? <CreditCharts data={data} /> : <EmptyState />}
     </div>
