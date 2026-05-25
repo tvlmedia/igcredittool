@@ -3,6 +3,7 @@ import { getDefaultEurUsdRate } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DashboardData,
+  ActivityLog,
   ExpenseItem,
   ExpoDetail,
   OwnedLens,
@@ -45,6 +46,22 @@ export async function getOwnedLenses(userId: string): Promise<OwnedLens[]> {
   }
 
   return (data ?? []) as OwnedLens[];
+}
+
+export async function getRecentActivity(userId: string, limit = 8): Promise<ActivityLog[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("activity_log")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []) as ActivityLog[];
 }
 
 export async function getDashboardData(userId?: string): Promise<DashboardData> {

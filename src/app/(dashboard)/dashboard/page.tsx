@@ -3,11 +3,12 @@ import { BalanceHero } from "@/components/dashboard/balance-hero";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { FxPreview } from "@/components/dashboard/fx-preview";
 import { MetricGrid } from "@/components/dashboard/metric-grid";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingExpirations } from "@/components/dashboard/upcoming-expirations";
 import { CreditCharts } from "@/components/charts/credit-charts";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import { Timeline } from "@/components/transactions/timeline";
-import { getDashboardData } from "@/lib/data/queries";
+import { getDashboardData, getRecentActivity } from "@/lib/data/queries";
 import { getLiveEurUsdRate } from "@/lib/fx";
 import { createClient } from "@/lib/supabase/server";
 import type { DashboardData } from "@/lib/types/domain";
@@ -24,9 +25,10 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [data, liveFx] = await Promise.all([
+  const [data, liveFx, activities] = await Promise.all([
     getDashboardData(user.id),
-    getLiveEurUsdRate()
+    getLiveEurUsdRate(),
+    getRecentActivity(user.id)
   ]);
   const liveMetrics = getLiveFxMetrics(data, liveFx.rate);
   const liveData = { ...data, metrics: liveMetrics };
@@ -37,6 +39,7 @@ export default async function DashboardPage() {
       <MetricGrid metrics={liveMetrics} />
       <FxPreview metrics={liveMetrics} fx={liveFx} />
       <UpcomingExpirations reminders={liveData.reminders} transactions={liveData.transactions} />
+      <RecentActivity activities={activities} />
       {liveData.transactions.length > 0 ? <CreditCharts data={liveData} /> : <EmptyState />}
       <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
         <TransactionForm sourceTransactions={liveData.sourceTransactions} />

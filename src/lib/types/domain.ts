@@ -39,6 +39,17 @@ export type OwnedLens = {
   updated_at: string;
 };
 
+export type ActivityLog = {
+  id: string;
+  user_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  label: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type Transaction = {
   id: string;
   user_id: string;

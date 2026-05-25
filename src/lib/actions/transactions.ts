@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { recordActivity } from "@/lib/activity";
 import { getDefaultEurUsdRate, hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import type { Currency, TransactionType } from "@/lib/types/domain";
@@ -161,6 +162,19 @@ export async function createTransaction(
       }
     }
 
+    await recordActivity({
+      userId: user.id,
+      action: "transaction_created",
+      entityType: "transaction",
+      entityId: transaction.id,
+      label: parsed.data.title,
+      metadata: {
+        type,
+        amount: detail.originalAmount,
+        currency: detail.currency
+      }
+    });
+
     revalidatePath("/dashboard");
     revalidatePath("/transactions");
     revalidatePath("/insights");
@@ -253,6 +267,18 @@ export async function updateTransaction(
     };
   }
 
+  await recordActivity({
+    userId: user.id,
+    action: "transaction_edited",
+    entityType: "transaction",
+    entityId: parsed.data.transactionId,
+    label: parsed.data.title,
+    metadata: {
+      amount: originalAmount,
+      currency: parsed.data.currency
+    }
+  });
+
   revalidateTransactionViews();
   return {
     status: "success",
@@ -280,15 +306,28 @@ export async function deleteTransaction(formData: FormData) {
     return;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("transactions")
     .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
     .eq("id", transactionId)
     .eq("user_id", user.id)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id,title,type")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (data) {
+    await recordActivity({
+      userId: user.id,
+      action: "transaction_deleted",
+      entityType: "transaction",
+      entityId: transactionId,
+      label: data.title,
+      metadata: { type: data.type }
+    });
   }
 
   revalidateTransactionViews();
@@ -313,15 +352,28 @@ export async function restoreTransaction(formData: FormData) {
     return;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("transactions")
     .update({ deleted_at: null, deleted_by: null })
     .eq("id", transactionId)
     .eq("user_id", user.id)
-    .not("deleted_at", "is", null);
+    .not("deleted_at", "is", null)
+    .select("id,title,type")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (data) {
+    await recordActivity({
+      userId: user.id,
+      action: "transaction_restored",
+      entityType: "transaction",
+      entityId: transactionId,
+      label: data.title,
+      metadata: { type: data.type }
+    });
   }
 
   revalidateTransactionViews();

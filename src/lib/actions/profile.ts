@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { recordActivities } from "@/lib/activity";
 import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -62,6 +63,15 @@ export async function saveProfile(
   }
 
   const lenses = parseLensDrafts(parsed.data.lensesJson);
+  const { data: existingLensRows } = await supabase
+    .from("owned_lenses")
+    .select("brand,model,notes")
+    .eq("user_id", user.id);
+  const existingLenses = (existingLensRows ?? []) as Array<{
+    brand: string;
+    model: string;
+    notes: string | null;
+  }>;
   const { error: profileError } = await supabase.from("profiles").upsert(
     {
       id: user.id,
@@ -119,6 +129,36 @@ export async function saveProfile(
     }
   }
 
+  const existingLensKeys = new Set(existingLenses.map((lens) => lensKey(lens)));
+  const nextLensKeys = new Set(lenses.map((lens) => lensKey(lens)));
+  await recordActivities([
+    {
+      userId: user.id,
+      action: "profile_updated",
+      entityType: "profile",
+      entityId: user.id,
+      label: cleanString(parsed.data.fullName) || user.email || "Profile"
+    },
+    ...lenses
+      .filter((lens) => !existingLensKeys.has(lensKey(lens)))
+      .map((lens) => ({
+        userId: user.id,
+        action: "owned_lens_added",
+        entityType: "owned_lens",
+        label: `${lens.brand} ${lens.model}`.trim(),
+        metadata: { brand: lens.brand, model: lens.model }
+      })),
+    ...existingLenses
+      .filter((lens) => !nextLensKeys.has(lensKey(lens)))
+      .map((lens) => ({
+        userId: user.id,
+        action: "owned_lens_removed",
+        entityType: "owned_lens",
+        label: `${lens.brand} ${lens.model}`.trim(),
+        metadata: { brand: lens.brand, model: lens.model }
+      }))
+  ]);
+
   revalidatePath("/profile");
   revalidatePath("/insights");
   revalidatePath("/dashboard");
@@ -157,6 +197,10 @@ function parseLensDrafts(value: string | undefined) {
 
 function cleanString(value: string | undefined) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function lensKey(lens: { brand: string; model: string }) {
+  return `${lens.brand.trim().toLowerCase()}::${lens.model.trim().toLowerCase()}`;
 }
 
 function nullableNumberValue(value: string | undefined) {
