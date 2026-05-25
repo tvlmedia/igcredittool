@@ -6,6 +6,7 @@ import { MetricGrid } from "@/components/dashboard/metric-grid";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingExpirations } from "@/components/dashboard/upcoming-expirations";
 import { CreditCharts } from "@/components/charts/credit-charts";
+import { ManualReportCard } from "@/components/reports/manual-report-card";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import { Timeline } from "@/components/transactions/timeline";
 import { buildLiveFxMetrics } from "@/lib/calculations";
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
       <BalanceHero metrics={liveMetrics} />
       <MetricGrid metrics={liveMetrics} />
       <FxPreview metrics={liveMetrics} fx={liveFx} />
+      <ManualReportCard />
       <UpcomingExpirations reminders={liveData.reminders} transactions={liveData.transactions} />
       <RecentActivity activities={activities} />
       {liveData.transactions.length > 0 ? <CreditCharts data={liveData} /> : <EmptyState />}

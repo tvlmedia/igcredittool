@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { BadgeDollarSign, Camera, Globe2, MapPinned, Plane, ShoppingBag } from "lucide-react";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ManualReportCard } from "@/components/reports/manual-report-card";
 import { formatCurrency } from "@/lib/format";
 import { getDashboardData, getOwnedLenses, getProfile } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -58,6 +59,7 @@ export default async function ProfilePage() {
         })}
       </div>
 
+      <ManualReportCard />
       <ProfileForm profile={profile} lenses={lenses} fallbackEmail={user.email ?? null} />
     </div>
   );
