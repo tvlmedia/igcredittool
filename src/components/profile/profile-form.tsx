@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Panel, SectionHeader } from "@/components/ui/panel";
+import { LocationAutocomplete } from "@/components/transactions/location-autocomplete";
 import { saveProfile, type ProfileActionState } from "@/lib/actions/profile";
 import type { OwnedLens, Profile } from "@/lib/types/domain";
 
@@ -30,6 +32,7 @@ export function ProfileForm({
   lenses: OwnedLens[];
   fallbackEmail: string | null;
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(saveProfile, initialState);
   const [lensDrafts, setLensDrafts] = useState<LensDraft[]>(() =>
     lenses.length > 0 ? lenses.map(toLensDraft) : [createLensDraft()]
@@ -49,12 +52,13 @@ export function ProfileForm({
   useEffect(() => {
     if (state.status === "success") {
       toast.success(state.message);
+      router.refresh();
     }
 
     if (state.status === "error") {
       toast.error(state.message);
     }
-  }, [state]);
+  }, [router, state]);
 
   function updateLens(id: string, field: keyof Omit<LensDraft, "id">, value: string) {
     setLensDrafts((current) =>
@@ -90,32 +94,24 @@ export function ProfileForm({
 
       <Panel>
         <SectionHeader eyebrow="Home base" title="Travel map origin" />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Home base city">
-            <Input name="homeBaseCity" defaultValue={profile?.home_base_city ?? ""} />
-          </Field>
-          <Field label="Home base country">
-            <Input name="homeBaseCountry" defaultValue={profile?.home_base_country ?? ""} />
-          </Field>
-          <Field label="Home base latitude">
-            <Input
-              name="homeBaseLatitude"
-              type="number"
-              step="0.000001"
-              defaultValue={stringValue(profile?.home_base_latitude)}
-              placeholder="51.535000"
-            />
-          </Field>
-          <Field label="Home base longitude">
-            <Input
-              name="homeBaseLongitude"
-              type="number"
-              step="0.000001"
-              defaultValue={stringValue(profile?.home_base_longitude)}
-              placeholder="5.630000"
-            />
-          </Field>
-        </div>
+        <LocationAutocomplete
+          initialValue={{
+            city: profile?.home_base_city,
+            country: profile?.home_base_country,
+            latitude: profile?.home_base_latitude,
+            longitude: profile?.home_base_longitude
+          }}
+          fieldNames={{
+            city: "homeBaseCity",
+            country: "homeBaseCountry",
+            latitude: "homeBaseLatitude",
+            longitude: "homeBaseLongitude"
+          }}
+          searchLabel="Home base search"
+          selectedLabel="Home base"
+          latitudeLabel="Home base latitude"
+          longitudeLabel="Home base longitude"
+        />
       </Panel>
 
       <Panel>
@@ -229,8 +225,4 @@ function createLensDraft(): LensDraft {
     model: "",
     notes: ""
   };
-}
-
-function stringValue(value: number | string | null | undefined) {
-  return value === null || value === undefined ? "" : String(value);
 }

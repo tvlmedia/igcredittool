@@ -26,10 +26,36 @@ type LocationSuggestion = {
 
 type SearchState = "idle" | "loading" | "empty" | "error";
 
+type LocationFieldNames = {
+  locationLabel?: string;
+  city: string;
+  country: string;
+  latitude: string;
+  longitude: string;
+};
+
+const defaultFieldNames: LocationFieldNames = {
+  locationLabel: "location_label",
+  city: "city",
+  country: "country",
+  latitude: "latitude",
+  longitude: "longitude"
+};
+
 export function LocationAutocomplete({
-  initialValue
+  initialValue,
+  fieldNames = defaultFieldNames,
+  searchLabel = "Location search",
+  selectedLabel = "Selected",
+  latitudeLabel = "Latitude",
+  longitudeLabel = "Longitude"
 }: {
   initialValue?: LocationValue;
+  fieldNames?: LocationFieldNames;
+  searchLabel?: string;
+  selectedLabel?: string;
+  latitudeLabel?: string;
+  longitudeLabel?: string;
 }) {
   const initialLabel = buildInitialLabel(initialValue);
   const [query, setQuery] = useState(initialLabel);
@@ -115,11 +141,13 @@ export function LocationAutocomplete({
 
   return (
     <div className="grid gap-4">
-      <input type="hidden" name="location_label" value={locationLabel} />
-      <input type="hidden" name="city" value={city} />
-      <input type="hidden" name="country" value={country} />
+      {fieldNames.locationLabel ? (
+        <input type="hidden" name={fieldNames.locationLabel} value={locationLabel} />
+      ) : null}
+      <input type="hidden" name={fieldNames.city} value={city} />
+      <input type="hidden" name={fieldNames.country} value={country} />
 
-      <Field label="Location search">
+      <Field label={searchLabel}>
         <div className="relative">
           <Search className="absolute left-3 top-3 text-white/32" size={16} />
           <Input
@@ -180,14 +208,14 @@ export function LocationAutocomplete({
 
       {locationLabel ? (
         <div className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs text-white/52">
-          Selected: {locationLabel}
+          {selectedLabel}: {locationLabel}
         </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Latitude">
+        <Field label={latitudeLabel}>
           <Input
-            name="latitude"
+            name={fieldNames.latitude}
             type="number"
             step="0.000001"
             value={latitude}
@@ -195,9 +223,9 @@ export function LocationAutocomplete({
             placeholder="51.535000"
           />
         </Field>
-        <Field label="Longitude">
+        <Field label={longitudeLabel}>
           <Input
-            name="longitude"
+            name={fieldNames.longitude}
             type="number"
             step="0.000001"
             value={longitude}
