@@ -136,76 +136,83 @@ export function Timeline({
       ) : null}
 
       <div className="grid gap-3">
-        {shown.map((transaction) => (
-          <article
-            key={transaction.id}
-            className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.045] p-4 transition hover:bg-white/[0.065] md:grid-cols-[150px_1fr_auto]"
-          >
-            <div className="text-sm text-white/48">{formatDate(transaction.date)}</div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-white">{transaction.title}</h3>
-                <Badge>{transactionTypeLabels[transaction.type]}</Badge>
-                {transaction.linkedTitle ? <Badge>Source: {transaction.linkedTitle}</Badge> : null}
-              </div>
-              {transaction.description ? (
-                <p className="mt-2 text-sm leading-6 text-white/54">{transaction.description}</p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {transaction.tags.map((item) => (
-                  <Badge key={item.id}>{item.name}</Badge>
-                ))}
-                {(transaction.type === "expo" || transaction.type === "rental_tour") ? (
-                  <a
-                    href={buildGoogleCalendarUrl(transaction)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-full border border-iron-400/20 bg-iron-400/10 px-2.5 py-1 text-xs font-medium text-iron-300 transition hover:bg-iron-400/16"
-                  >
-                    <Calendar size={13} />
-                    Google Calendar
-                  </a>
+        {shown.map((transaction) => {
+          const originalAmount = formatCurrency(
+            Number(transaction.original_amount),
+            transaction.currency
+          );
+
+          return (
+            <article
+              key={transaction.id}
+              className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.045] p-4 transition hover:bg-white/[0.065] md:grid-cols-[150px_1fr_auto]"
+            >
+              <div className="text-sm text-white/48">{formatDate(transaction.date)}</div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold text-white">{transaction.title}</h3>
+                  <Badge>{transactionTypeLabels[transaction.type]}</Badge>
+                  {transaction.linkedTitle ? <Badge>Source: {transaction.linkedTitle}</Badge> : null}
+                </div>
+                {transaction.description ? (
+                  <p className="mt-2 text-sm leading-6 text-white/54">{transaction.description}</p>
                 ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {transaction.tags.map((item) => (
+                    <Badge key={item.id}>{item.name}</Badge>
+                  ))}
+                  {(transaction.type === "expo" || transaction.type === "rental_tour") ? (
+                    <a
+                      href={buildGoogleCalendarUrl(transaction)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-full border border-iron-400/20 bg-iron-400/10 px-2.5 py-1 text-xs font-medium text-iron-300 transition hover:bg-iron-400/16"
+                    >
+                      <Calendar size={13} />
+                      Google Calendar
+                    </a>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            <div className="text-right">
-              <p
-                className={`text-xl font-semibold ${
-                  transaction.original_amount < 0 ? "text-red-200" : "text-white"
-                }`}
-              >
-                {formatCurrency(Number(transaction.original_amount), transaction.currency)}
-              </p>
-              {transaction.converted_amount_usd ? (
-                <p className="mt-1 text-xs text-white/38">
-                  {formatCurrency(Number(transaction.converted_amount_usd), "USD")} snapshot
-                </p>
-              ) : null}
-              <form
-                action={action}
-                className="mt-3"
-                onSubmit={(event) => {
-                  if (
-                    mode === "active" &&
-                    !window.confirm("Are you sure you want to delete this transaction?")
-                  ) {
-                    event.preventDefault();
-                  }
-                }}
-              >
-                <input type="hidden" name="transactionId" value={transaction.id} />
-                <Button
-                  type="submit"
-                  variant={mode === "deleted" ? "secondary" : "danger"}
-                  icon={mode === "deleted" ? <RotateCcw size={15} /> : <Trash2 size={15} />}
-                  className="min-h-9 px-3 py-1.5"
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/38">Credit earned</p>
+                <p
+                  className={`mt-1 text-xl font-semibold ${
+                    transaction.original_amount < 0 ? "text-red-200" : "text-white"
+                  }`}
                 >
-                  {mode === "deleted" ? "Restore" : "Delete"}
-                </Button>
-              </form>
-            </div>
-          </article>
-        ))}
+                  {originalAmount}
+                </p>
+                <div className="mt-2 grid gap-1 text-xs text-white/45">
+                  <p>Original amount: {originalAmount}</p>
+                  <p>Currency: {transaction.currency}</p>
+                </div>
+                <form
+                  action={action}
+                  className="mt-3"
+                  onSubmit={(event) => {
+                    if (
+                      mode === "active" &&
+                      !window.confirm("Are you sure you want to delete this transaction?")
+                    ) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  <input type="hidden" name="transactionId" value={transaction.id} />
+                  <Button
+                    type="submit"
+                    variant={mode === "deleted" ? "secondary" : "danger"}
+                    icon={mode === "deleted" ? <RotateCcw size={15} /> : <Trash2 size={15} />}
+                    className="min-h-9 px-3 py-1.5"
+                  >
+                    {mode === "deleted" ? "Restore" : "Delete"}
+                  </Button>
+                </form>
+              </div>
+            </article>
+          );
+        })}
 
         {shown.length === 0 ? (
           <div className="rounded-lg border border-white/10 bg-white/[0.035] p-8 text-center text-white/48">

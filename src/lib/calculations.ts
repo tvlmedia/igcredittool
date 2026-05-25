@@ -107,34 +107,34 @@ export function buildDashboardData(input: {
       (breakdownMap.get(transaction.type) ?? 0) + Math.abs(amountUsd)
     );
 
+    const transactionExpenseItems = expenseItemsByTransaction.get(transaction.id) ?? [];
+
     if (transaction.type === "purchase") {
       const purchase = purchaseByTransaction.get(transaction.id);
       usdReserve -= purchase?.usd_credit_used ?? Math.abs(transaction.original_amount);
       eurReserve -= purchase?.eur_credit_converted ?? 0;
-    } else if (transaction.type === "expo" || transaction.type === "rental_tour") {
+    } else if (transaction.type === "expo") {
       const expo = expoByTransaction.get(transaction.id);
+      const multiplier = expo?.expenses_multiplier ?? 1;
+
+      addToReserve(transaction.currency, Number(transaction.original_amount));
+
+      for (const item of transactionExpenseItems) {
+        addToReserve(item.currency, Number(item.amount) * multiplier);
+      }
+    } else if (transaction.type === "rental_tour") {
       const rental = rentalByTransaction.get(transaction.id);
-      const multiplier = expo?.expenses_multiplier ?? rental?.expenses_multiplier ?? 1;
+      const multiplier = rental?.expenses_multiplier ?? 1;
 
-      if (transaction.type === "expo") {
-        if (transaction.currency === "EUR") {
-          eurReserve += Number(transaction.original_amount);
-        } else {
-          usdReserve += Number(transaction.original_amount);
+      if (transactionExpenseItems.length > 0) {
+        for (const item of transactionExpenseItems) {
+          addToReserve(item.currency, Number(item.amount) * multiplier);
         }
+      } else {
+        addToReserve(transaction.currency, Number(transaction.original_amount));
       }
-
-      for (const item of expenseItemsByTransaction.get(transaction.id) ?? []) {
-        if (item.currency === "EUR") {
-          eurReserve += Number(item.amount) * multiplier;
-        } else {
-          usdReserve += Number(item.amount) * multiplier;
-        }
-      }
-    } else if (transaction.currency === "EUR") {
-      eurReserve += Number(transaction.original_amount);
     } else {
-      usdReserve += Number(transaction.original_amount);
+      addToReserve(transaction.currency, Number(transaction.original_amount));
     }
 
     growth.push({
@@ -245,6 +245,14 @@ export function buildDashboardData(input: {
         : 0;
 
   const sortedProfitability = [...profitability].sort((a, b) => b.salesUsd - a.salesUsd);
+
+  function addToReserve(currency: Transaction["currency"], amount: number) {
+    if (currency === "EUR") {
+      eurReserve += amount;
+    } else {
+      usdReserve += amount;
+    }
+  }
 
   return {
     transactions: timeline,

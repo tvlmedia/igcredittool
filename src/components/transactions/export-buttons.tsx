@@ -15,7 +15,7 @@ export function ExportButtons({ transactions }: { transactions: TimelineEvent[] 
       "type",
       "currency",
       "original_amount",
-      "usd_snapshot",
+      "credit_earned_usd",
       "notes",
       "tags"
     ];
