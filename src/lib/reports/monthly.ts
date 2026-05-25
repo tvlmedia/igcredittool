@@ -1,19 +1,55 @@
 import {
   buildLiveFxMetrics,
   calculateTransactionBreakdown,
+  type CurrencyAmount,
   type TransactionCalculationBreakdown
 } from "@/lib/calculations";
 import { getDashboardData, getDeletedTransactions, getProfile } from "@/lib/data/queries";
 import { getLiveEurUsdRate, type LiveFxRate } from "@/lib/fx";
 import { isActiveReminder } from "@/lib/reminders";
 import { createClient } from "@/lib/supabase/server";
-import type { CreditSnapshot, DashboardData, TimelineEvent } from "@/lib/types/domain";
+import type { CreditSnapshot, DashboardData, TimelineEvent, TransactionType } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ReportPeriod = {
   start: string;
   end: string;
+};
+
+export type ReportBalanceBuildUp = {
+  eurReserve: number;
+  eurReserveUsd: number;
+  usdReserve: number;
+  totalUsdEquivalent: number;
+  totalSpent: number;
+  currentBalance: number;
+  liveEurUsdRate: number;
+  rateSource: string;
+  usingFallbackFx: boolean;
+};
+
+export type ReportAllTimeSummary = {
+  totalEarned: number;
+  totalSpent: number;
+  currentBalance: number;
+  transactionCount: number;
+  countriesVisited: number;
+  citiesVisited: number;
+  expos: number;
+  sales: number;
+  rentalTours: number;
+  expenses: number;
+  purchases: number;
+};
+
+export type ReportSourceAnalytics = {
+  topCountries: Array<{ label: string; value: number; count: number }>;
+  topCities: Array<{ label: string; value: number; count: number }>;
+  topTransactionTypes: Array<{ label: string; type: TransactionType; value: number; count: number }>;
+  topExpos: Array<{ label: string; value: number; city: string | null; country: string | null }>;
+  bestLocation: { label: string; value: number; count: number } | null;
+  topTags: Array<{ label: string; value: number; count: number }>;
 };
 
 export type MonthlyCreditReport = {
@@ -38,6 +74,8 @@ export type MonthlyCreditReport = {
   totalUsdEquivalent: number;
   totalEarned: number;
   totalSpent: number;
+  balanceBuildUp: ReportBalanceBuildUp;
+  allTimeSummary: ReportAllTimeSummary;
   creditsEarnedThisMonth: number;
   expensesThisMonth: number;
   transactionCount: number;
@@ -48,6 +86,9 @@ export type MonthlyCreditReport = {
     dueDate: string;
     transactionTitle: string | null;
     daysUntil: number;
+    amountUsdEquivalent: number | null;
+    originalAmount: number | null;
+    currency: string | null;
   }>;
   topTransactions: Array<ReportTransaction>;
   topCountries: Array<{ label: string; value: number }>;
@@ -56,8 +97,10 @@ export type MonthlyCreditReport = {
   activitySummary: {
     deleted: number;
     restored: number;
+    edited: number;
     events: Array<{ action: string; label: string | null; createdAt: string }>;
   };
+  sourceAnalytics: ReportSourceAnalytics;
   transactions: ReportTransaction[];
   calculationBreakdowns: Array<ReportCalculationBreakdown>;
   snapshot: Omit<CreditSnapshot, "id" | "created_at" | "emailed_at">;
@@ -67,12 +110,19 @@ export type ReportTransaction = {
   id: string;
   date: string;
   title: string;
+  notes: string | null;
   type: string;
+  typeKey: TransactionType;
   city: string | null;
   country: string | null;
+  location: string | null;
   currency: string;
   originalAmount: number;
   usdEquivalent: number;
+  linkedSourceTitle: string | null;
+  tags: string[];
+  calculation: ReportCalculationBreakdown;
+  breakdownSummary: string;
 };
 
 export type ReportCalculationBreakdown = {
@@ -89,6 +139,11 @@ export type ReportCalculationBreakdown = {
   usdEquivalent: number;
   eurReserveImpact: number;
   usdReserveImpact: number;
+  saleAmount?: CurrencyAmount;
+  creditPercentage?: number;
+  days?: number;
+  dailyCreditAmount?: CurrencyAmount;
+  paymentMode?: string;
 };
 
 export async function generateMonthlyCreditReport(input: {
@@ -115,6 +170,8 @@ export async function generateMonthlyCreditReport(input: {
   }));
   const countries = uniqueValues(monthTransactions.map((transaction) => transaction.country));
   const cities = uniqueValues(monthTransactions.map((transaction) => transaction.city));
+  const allTimeCountries = uniqueValues(data.transactions.map((transaction) => transaction.country));
+  const allTimeCities = uniqueValues(data.transactions.map((transaction) => transaction.city));
   const openingSnapshot = await getOpeningSnapshot(input.userId, period.start, input.client);
   const activitySummary = await getActivitySummary(input.userId, period, input.client);
   const creditsEarnedThisMonth = monthCalculations.reduce(
@@ -132,6 +189,13 @@ export async function generateMonthlyCreditReport(input: {
   const transactions = monthCalculations
     .map(({ transaction, calculation }) => toReportTransaction(transaction, calculation))
     .sort((a, b) => a.date.localeCompare(b.date));
+  const balanceBuildUp = buildBalanceBuildUp(liveMetrics, fx);
+  const allTimeSummary = buildAllTimeSummary(data, liveMetrics, allTimeCountries, allTimeCities);
+  const sourceAnalytics = buildSourceAnalytics(monthTransactions, calculations);
+  const upcomingExpirations = buildUpcomingExpirations(data, calculations);
+  const calculationBreakdowns = monthCalculations.map(({ transaction, calculation }) =>
+    toReportCalculation(transaction, calculation)
+  );
   const reportMonth = new Date(`${period.start}T00:00:00`);
   const month = reportMonth.getUTCMonth() + 1;
   const year = reportMonth.getUTCFullYear();
@@ -143,15 +207,17 @@ export async function generateMonthlyCreditReport(input: {
       company: profile?.company ?? null
     },
     metrics: liveMetrics,
+    balanceBuildUp,
+    allTimeSummary,
     creditsEarnedThisMonth,
     expensesThisMonth,
     transactions,
+    calculationBreakdowns,
     topTransactions,
-    topCountries: topBuckets(monthTransactions, calculations, (transaction) => transaction.country),
-    topCities: topBuckets(monthTransactions, calculations, (transaction) =>
-      [transaction.city, transaction.country].filter(Boolean).join(", ")
-    ),
-    upcomingExpirations: buildUpcomingExpirations(data),
+    topCountries: sourceAnalytics.topCountries,
+    topCities: sourceAnalytics.topCities,
+    sourceAnalytics,
+    upcomingExpirations,
     profitability: data.profitability,
     deletedTransactions: deletedTransactions
       .filter((transaction) => transaction.deleted_at && isWithinPeriod(transaction.deleted_at.slice(0, 10), period))
@@ -198,21 +264,22 @@ export async function generateMonthlyCreditReport(input: {
     totalUsdEquivalent: liveMetrics.currentBalanceUsd,
     totalEarned: liveMetrics.totalEarnedUsd,
     totalSpent: liveMetrics.totalSpentUsd,
+    balanceBuildUp,
+    allTimeSummary,
     creditsEarnedThisMonth,
     expensesThisMonth,
     transactionCount: monthTransactions.length,
     countriesVisited: countries.length,
     citiesVisited: cities.length,
-    upcomingExpirations: reportDataBase.upcomingExpirations,
+    upcomingExpirations,
     topTransactions,
     topCountries: reportDataBase.topCountries,
     topCities: reportDataBase.topCities,
     profitability: data.profitability,
     activitySummary,
+    sourceAnalytics,
     transactions,
-    calculationBreakdowns: monthCalculations.map(({ transaction, calculation }) =>
-      toReportCalculation(transaction, calculation)
-    ),
+    calculationBreakdowns,
     snapshot
   };
 }
@@ -313,16 +380,25 @@ function toReportTransaction(
   transaction: TimelineEvent,
   calculation: TransactionCalculationBreakdown | undefined
 ): ReportTransaction {
+  const reportCalculation = toReportCalculation(transaction, calculation);
+
   return {
     id: transaction.id,
     date: transaction.date,
     title: transaction.title,
+    notes: transaction.description,
     type: transactionTypeLabels[transaction.type],
+    typeKey: transaction.type,
     city: transaction.city,
     country: transaction.country,
+    location: [transaction.city, transaction.country].filter(Boolean).join(", ") || null,
     currency: transaction.currency,
     originalAmount: Number(transaction.original_amount),
-    usdEquivalent: calculation?.usdEquivalent ?? Number(transaction.converted_amount_usd ?? transaction.original_amount)
+    usdEquivalent: calculation?.usdEquivalent ?? Number(transaction.converted_amount_usd ?? transaction.original_amount),
+    linkedSourceTitle: transaction.linkedTitle ?? null,
+    tags: transaction.tags.map((tag) => tag.name),
+    calculation: reportCalculation,
+    breakdownSummary: buildBreakdownSummary(reportCalculation)
   };
 }
 
@@ -354,7 +430,82 @@ function toReportCalculation(
     ],
     usdEquivalent: calculation?.usdEquivalent ?? fallbackAmount,
     eurReserveImpact: calculation?.eurReserveImpact ?? 0,
-    usdReserveImpact: calculation?.usdReserveImpact ?? fallbackAmount
+    usdReserveImpact: calculation?.usdReserveImpact ?? fallbackAmount,
+    saleAmount: calculation?.saleAmount,
+    creditPercentage: calculation?.creditPercentage,
+    days: calculation?.days,
+    dailyCreditAmount: calculation?.dailyCreditAmount,
+    paymentMode: calculation?.paymentMode
+  };
+}
+
+function buildBalanceBuildUp(
+  metrics: DashboardData["metrics"],
+  fx: LiveFxRate
+): ReportBalanceBuildUp {
+  const eurReserveUsd = metrics.eurReserve * fx.rate;
+
+  return {
+    eurReserve: metrics.eurReserve,
+    eurReserveUsd,
+    usdReserve: metrics.usdReserve,
+    totalUsdEquivalent: eurReserveUsd + metrics.usdReserve,
+    totalSpent: metrics.totalSpentUsd,
+    currentBalance: metrics.currentBalanceUsd,
+    liveEurUsdRate: fx.rate,
+    rateSource: fx.usingFallback
+      ? "Fallback rate from NEXT_PUBLIC_DEFAULT_EUR_USD_RATE"
+      : "Frankfurter API live EUR/USD rate",
+    usingFallbackFx: fx.usingFallback
+  };
+}
+
+function buildAllTimeSummary(
+  data: DashboardData,
+  metrics: DashboardData["metrics"],
+  countries: string[],
+  cities: string[]
+): ReportAllTimeSummary {
+  return {
+    totalEarned: metrics.totalEarnedUsd,
+    totalSpent: metrics.totalSpentUsd,
+    currentBalance: metrics.currentBalanceUsd,
+    transactionCount: data.transactions.length,
+    countriesVisited: countries.length,
+    citiesVisited: cities.length,
+    expos: countType(data.transactions, "expo"),
+    sales: countType(data.transactions, "sale"),
+    rentalTours: countType(data.transactions, "rental_tour"),
+    expenses: countType(data.transactions, "expense"),
+    purchases: countType(data.transactions, "purchase")
+  };
+}
+
+function buildSourceAnalytics(
+  transactions: TimelineEvent[],
+  calculations: Map<string, TransactionCalculationBreakdown>
+): ReportSourceAnalytics {
+  const topCountries = topBuckets(transactions, calculations, (transaction) => transaction.country);
+  const topCities = topBuckets(transactions, calculations, (transaction) =>
+    [transaction.city, transaction.country].filter(Boolean).join(", ")
+  );
+
+  return {
+    topCountries,
+    topCities,
+    topTransactionTypes: buildTopTransactionTypes(transactions, calculations),
+    topExpos: transactions
+      .filter((transaction) => transaction.type === "expo")
+      .map((transaction) => ({
+        label: transaction.title,
+        value: creditValue(transaction, calculations),
+        city: transaction.city,
+        country: transaction.country
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8),
+    bestLocation: topCities[0] ?? topCountries[0] ?? null,
+    topTags: topTagBuckets(transactions, calculations)
   };
 }
 
@@ -363,23 +514,91 @@ function topBuckets(
   calculations: Map<string, TransactionCalculationBreakdown>,
   getLabel: (transaction: TimelineEvent) => string | null | undefined
 ) {
-  const grouped = transactions.reduce<Record<string, number>>((acc, transaction) => {
-    const label = getLabel(transaction)?.trim();
-    if (!label) {
-      return acc;
-    }
+  const grouped = transactions.reduce<Record<string, { value: number; count: number }>>(
+    (acc, transaction) => {
+      const label = getLabel(transaction)?.trim();
+      if (!label) {
+        return acc;
+      }
 
-    acc[label] = (acc[label] ?? 0) + Math.abs(calculations.get(transaction.id)?.usdEquivalent ?? 0);
-    return acc;
-  }, {});
+      const current = acc[label] ?? { value: 0, count: 0 };
+      acc[label] = {
+        value: current.value + creditValue(transaction, calculations),
+        count: current.count + 1
+      };
+      return acc;
+    },
+    {}
+  );
 
   return Object.entries(grouped)
-    .map(([label, value]) => ({ label, value }))
+    .map(([label, item]) => ({ label, value: item.value, count: item.count }))
+    .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
 }
 
-function buildUpcomingExpirations(data: DashboardData) {
+function buildTopTransactionTypes(
+  transactions: TimelineEvent[],
+  calculations: Map<string, TransactionCalculationBreakdown>
+) {
+  const grouped = transactions.reduce<
+    Partial<Record<TransactionType, { value: number; count: number }>>
+  >((acc, transaction) => {
+    const current = acc[transaction.type] ?? { value: 0, count: 0 };
+    acc[transaction.type] = {
+      value: current.value + creditValue(transaction, calculations),
+      count: current.count + 1
+    };
+    return acc;
+  }, {});
+
+  return Object.entries(grouped)
+    .map(([type, item]) => ({
+      type: type as TransactionType,
+      label: transactionTypeLabels[type as TransactionType],
+      value: item?.value ?? 0,
+      count: item?.count ?? 0
+    }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+function topTagBuckets(
+  transactions: TimelineEvent[],
+  calculations: Map<string, TransactionCalculationBreakdown>
+) {
+  const grouped = transactions.reduce<Record<string, { value: number; count: number }>>(
+    (acc, transaction) => {
+      for (const tag of transaction.tags) {
+        const label = tag.name.trim();
+        if (!label) {
+          continue;
+        }
+
+        const current = acc[label] ?? { value: 0, count: 0 };
+        acc[label] = {
+          value: current.value + creditValue(transaction, calculations),
+          count: current.count + 1
+        };
+      }
+
+      return acc;
+    },
+    {}
+  );
+
+  return Object.entries(grouped)
+    .map(([label, item]) => ({ label, value: item.value, count: item.count }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
+function buildUpcomingExpirations(
+  data: DashboardData,
+  calculations: Map<string, TransactionCalculationBreakdown>
+) {
   const transactionsById = new Map(data.transactions.map((transaction) => [transaction.id, transaction]));
 
   return data.reminders
@@ -393,11 +612,62 @@ function buildUpcomingExpirations(data: DashboardData) {
         title: reminder.title,
         dueDate: reminder.due_date,
         transactionTitle: transaction?.title ?? null,
-        daysUntil: daysUntil(reminder.due_date)
+        daysUntil: daysUntil(reminder.due_date),
+        amountUsdEquivalent: transaction
+          ? calculations.get(transaction.id)?.usdEquivalent ??
+            Number(transaction.converted_amount_usd ?? transaction.original_amount)
+          : null,
+        originalAmount: transaction ? Number(transaction.original_amount) : null,
+        currency: transaction?.currency ?? null
       };
     })
-    .sort((a, b) => a.daysUntil - b.daysUntil)
-    .slice(0, 8);
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
+function countType(transactions: TimelineEvent[], type: TransactionType) {
+  return transactions.filter((transaction) => transaction.type === type).length;
+}
+
+function creditValue(
+  transaction: TimelineEvent,
+  calculations: Map<string, TransactionCalculationBreakdown>
+) {
+  return Math.max(
+    calculations.get(transaction.id)?.usdEquivalent ??
+      Number(transaction.converted_amount_usd ?? transaction.original_amount),
+    0
+  );
+}
+
+function buildBreakdownSummary(calculation: ReportCalculationBreakdown) {
+  const parts = [
+    `Gross credit ${formatCurrencyAmount(calculation.grossCredit)}`,
+    calculation.days ? `${calculation.days} days` : null,
+    calculation.dailyCreditAmount
+      ? `daily amount ${formatCurrencyAmount(calculation.dailyCreditAmount)}`
+      : null,
+    calculation.saleAmount ? `sale amount ${formatCurrencyAmount(calculation.saleAmount)}` : null,
+    calculation.creditPercentage !== undefined
+      ? `credit percentage ${calculation.creditPercentage}%`
+      : null,
+    calculation.expenses.length > 0
+      ? `expenses ${calculation.expenses.map(formatCurrencyAmount).join(" + ")}`
+      : null,
+    calculation.multiplier !== 1 ? `multiplier x${calculation.multiplier}` : null,
+    calculation.paymentMode ? `payment mode ${calculation.paymentMode.replaceAll("_", " ")}` : null,
+    `final credit ${calculation.finalCreditEarned.map(formatCurrencyAmount).join(" + ")}`,
+    `USD equivalent ${formatCurrencyAmount({ currency: "USD", amount: calculation.usdEquivalent })}`
+  ].filter(Boolean);
+
+  return parts.join("; ");
+}
+
+function formatCurrencyAmount(item: CurrencyAmount) {
+  return `${item.currency} ${roundReportNumber(item.amount).toLocaleString("en-US")}`;
+}
+
+function roundReportNumber(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 async function getOpeningSnapshot(userId: string, periodStart: string, client?: SupabaseClient) {
@@ -426,10 +696,10 @@ async function getActivitySummary(userId: string, period: ReportPeriod, client?:
     .eq("user_id", userId)
     .gte("created_at", `${period.start}T00:00:00.000Z`)
     .lte("created_at", `${period.end}T23:59:59.999Z`)
-    .in("action", ["transaction_deleted", "transaction_restored"]);
+    .in("action", ["transaction_deleted", "transaction_restored", "transaction_edited"]);
 
   if (error) {
-    return { deleted: 0, restored: 0, events: [] };
+    return { deleted: 0, restored: 0, edited: 0, events: [] };
   }
 
   const events = (data ?? []) as Array<{ action: string; label: string | null; created_at: string }>;
@@ -437,6 +707,7 @@ async function getActivitySummary(userId: string, period: ReportPeriod, client?:
   return {
     deleted: events.filter((event) => event.action === "transaction_deleted").length,
     restored: events.filter((event) => event.action === "transaction_restored").length,
+    edited: events.filter((event) => event.action === "transaction_edited").length,
     events: events.map((event) => ({
       action: event.action,
       label: event.label,
