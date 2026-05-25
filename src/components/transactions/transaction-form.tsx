@@ -140,7 +140,7 @@ export function TransactionForm({
         {type !== "sale" && type !== "purchase" ? (
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Entry currency">
-              <Select name="currency" defaultValue="EUR">
+              <Select key={type} name="currency" defaultValue={type === "expo" ? "USD" : "EUR"}>
                 <option value="EUR">EUR</option>
                 <option value="USD">USD</option>
               </Select>
