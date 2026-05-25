@@ -171,14 +171,23 @@ export async function createTransaction(
   }
 }
 
-export async function updateTransaction(formData: FormData) {
+export async function updateTransaction(
+  _previousState: TransactionActionState,
+  formData: FormData
+): Promise<TransactionActionState> {
   if (!hasSupabaseEnv()) {
-    return;
+    return {
+      status: "error",
+      message: "Supabase environment variables are missing."
+    };
   }
 
   const parsed = updateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    return;
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "Invalid transaction update."
+    };
   }
 
   const supabase = await createClient();
@@ -187,7 +196,10 @@ export async function updateTransaction(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return;
+    return {
+      status: "error",
+      message: "You need to be logged in."
+    };
   }
 
   const location = buildLocationPayload(formData);
@@ -196,7 +208,7 @@ export async function updateTransaction(formData: FormData) {
     parsed.data.currency === "EUR" ? originalAmount * parsed.data.exchangeRate : originalAmount
   );
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("transactions")
     .update({
       title: parsed.data.title,
@@ -214,13 +226,26 @@ export async function updateTransaction(formData: FormData) {
     })
     .eq("id", parsed.data.transactionId)
     .eq("user_id", user.id)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
-    throw error;
+    return {
+      status: "error",
+      message: error.message
+    };
+  }
+
+  if (!data) {
+    return {
+      status: "error",
+      message: "Transaction could not be updated."
+    };
   }
 
   revalidateTransactionViews();
+  return { status: "success", message: "Transaction updated." };
 }
 
 export async function deleteTransaction(formData: FormData) {

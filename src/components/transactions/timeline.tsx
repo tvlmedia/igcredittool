@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { Calendar, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,19 @@ import { LocationAutocomplete } from "@/components/transactions/location-autocom
 import {
   deleteTransaction,
   restoreTransaction,
-  updateTransaction
+  updateTransaction,
+  type TransactionActionState
 } from "@/lib/actions/transactions";
 import { getDefaultEurUsdRate } from "@/lib/env";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Currency, TimelineEvent, TransactionType } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
+
+const initialUpdateState: TransactionActionState = {
+  status: "idle",
+  message: ""
+};
 
 export function Timeline({
   transactions,
@@ -262,10 +269,22 @@ function EditTransactionForm({
   onSaved: () => void;
   onCancel: () => void;
 }) {
+  const [state, formAction, pending] = useActionState(updateTransaction, initialUpdateState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      toast.success(state.message);
+      onSaved();
+    }
+
+    if (state.status === "error") {
+      toast.error(state.message);
+    }
+  }, [onSaved, state]);
+
   return (
     <form
-      action={updateTransaction}
-      onSubmit={onSaved}
+      action={formAction}
       className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-4 md:col-span-3"
     >
       <input type="hidden" name="transactionId" value={transaction.id} />
@@ -323,8 +342,8 @@ function EditTransactionForm({
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" variant="secondary" icon={<Pencil size={16} />}>
-          Save changes
+        <Button type="submit" variant="secondary" icon={<Pencil size={16} />} disabled={pending}>
+          {pending ? "Saving..." : "Save changes"}
         </Button>
       </div>
     </form>
