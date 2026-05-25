@@ -31,6 +31,11 @@ export type Transaction = {
   converted_amount_usd: number | null;
   exchange_rate_snapshot: number | null;
   attributed_to_transaction_id: string | null;
+  city: string | null;
+  country: string | null;
+  location_label: string | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

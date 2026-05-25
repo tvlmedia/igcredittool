@@ -60,6 +60,7 @@ export async function createTransaction(
     const expenseItems = parseExpenseItems(formData.get("expenseItemsJson"));
     const dailyCredits = parseDailyCredits(formData.get("dailyCreditsJson"));
     const exchangeRate = parsed.data.exchangeRate;
+    const location = buildLocationPayload(formData);
     const detail = buildTransactionPayload({
       type,
       formData,
@@ -81,7 +82,12 @@ export async function createTransaction(
         original_amount: detail.originalAmount,
         converted_amount_usd: detail.convertedAmountUsd,
         exchange_rate_snapshot: exchangeRate,
-        attributed_to_transaction_id: detail.attributedToTransactionId
+        attributed_to_transaction_id: detail.attributedToTransactionId,
+        city: location.city,
+        country: location.country,
+        location_label: location.locationLabel,
+        latitude: location.latitude,
+        longitude: location.longitude
       })
       .select("*")
       .single();
@@ -227,6 +233,16 @@ function revalidateTransactionViews() {
   revalidatePath("/transactions/deleted");
   revalidatePath("/insights");
   revalidatePath("/admin");
+}
+
+function buildLocationPayload(formData: FormData) {
+  return {
+    city: stringValue(formData.get("city")) || null,
+    country: stringValue(formData.get("country")) || null,
+    locationLabel: stringValue(formData.get("location_label")) || null,
+    latitude: nullableNumberValue(formData.get("latitude")),
+    longitude: nullableNumberValue(formData.get("longitude"))
+  };
 }
 
 function buildTransactionPayload(input: {
@@ -491,6 +507,15 @@ function stringValue(value: FormDataEntryValue | null) {
 function numberValue(value: FormDataEntryValue | null, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function nullableNumberValue(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function enumValue<T extends string>(value: FormDataEntryValue | null, fallback: T) {
