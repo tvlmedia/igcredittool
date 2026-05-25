@@ -6,6 +6,8 @@ import { TransactionForm } from "@/components/transactions/transaction-form";
 import { getDashboardData } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function TransactionsPage() {
   const supabase = await createClient();
   const {

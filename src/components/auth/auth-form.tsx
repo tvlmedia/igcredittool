@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup" | "reset" | "update";
+type AppRouter = ReturnType<typeof useRouter>;
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
@@ -32,7 +33,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           throw error;
         }
         toast.success("Welcome back.");
-        router.push(searchParams.get("next") || "/dashboard");
+        pushSafeNextRoute(router, searchParams.get("next"));
         router.refresh();
       }
 
@@ -153,4 +154,23 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       </div>
     </form>
   );
+}
+
+function pushSafeNextRoute(router: AppRouter, value: string | null) {
+  if (value === "/transactions") {
+    router.push("/transactions");
+    return;
+  }
+
+  if (value === "/insights") {
+    router.push("/insights");
+    return;
+  }
+
+  if (value === "/admin") {
+    router.push("/admin");
+    return;
+  }
+
+  router.push("/dashboard");
 }

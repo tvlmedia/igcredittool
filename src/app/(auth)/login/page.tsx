@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import { Suspense, type ComponentProps, type ReactNode } from "react";
 import { AuthForm } from "@/components/auth/auth-form";
 import { SetupNotice } from "@/components/ui/setup-notice";
 import { hasSupabaseEnv } from "@/lib/env";
@@ -38,9 +38,9 @@ function AuthLinks({
   secondaryHref,
   secondaryLabel
 }: {
-  primaryHref: string;
+  primaryHref: AuthLinkHref;
   primaryLabel: string;
-  secondaryHref: string;
+  secondaryHref: AuthLinkHref;
   secondaryLabel: string;
 }) {
   return (
@@ -55,3 +55,5 @@ function AuthLinks({
     </div>
   );
 }
+
+type AuthLinkHref = ComponentProps<typeof Link>["href"];

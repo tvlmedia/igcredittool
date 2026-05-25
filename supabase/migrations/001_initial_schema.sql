@@ -3,17 +3,20 @@ create extension if not exists "pgcrypto";
 do $$ begin
   create type public.profile_role as enum ('ambassador', 'admin');
 exception when duplicate_object then null;
-end $$;
+end;
+$$;
 
 do $$ begin
   create type public.transaction_type as enum ('sale', 'expo', 'rental_tour', 'expense', 'purchase');
 exception when duplicate_object then null;
-end $$;
+end;
+$$;
 
 do $$ begin
   create type public.currency_code as enum ('EUR', 'USD');
 exception when duplicate_object then null;
-end $$;
+end;
+$$;
 
 create or replace function public.set_updated_at()
 returns trigger

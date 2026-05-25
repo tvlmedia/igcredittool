@@ -9,7 +9,7 @@ const navItems = [
   { href: "/transactions", label: "Transactions", icon: CircleDollarSign },
   { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/admin", label: "Admin", icon: Shield }
-];
+] as const;
 
 export function AppShell({
   children,

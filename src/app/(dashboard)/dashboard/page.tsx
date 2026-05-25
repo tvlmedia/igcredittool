@@ -8,6 +8,8 @@ import { Timeline } from "@/components/transactions/timeline";
 import { getDashboardData } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {

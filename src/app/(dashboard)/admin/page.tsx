@@ -4,6 +4,8 @@ import { Panel } from "@/components/ui/panel";
 import { getAdminProfiles, getDashboardData, getProfile } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const supabase = await createClient();
   const {

@@ -5,6 +5,8 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { getDashboardData } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function InsightsPage() {
   const supabase = await createClient();
   const {

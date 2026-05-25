@@ -6,6 +6,8 @@ import { hasSupabaseEnv } from "@/lib/env";
 import { getProfile } from "@/lib/data/queries";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children
 }: {
