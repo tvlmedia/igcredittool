@@ -14,7 +14,8 @@ import type {
   SaleDetail,
   Tag,
   TimelineEvent,
-  Transaction
+  Transaction,
+  TransactionAttachment
 } from "@/lib/types/domain";
 
 type TransactionTagRow = {
@@ -83,6 +84,7 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
     rentalTourDetailsResult,
     expenseItemsResult,
     purchaseDetailsResult,
+    transactionAttachmentsResult,
     tagsResult,
     transactionTagsResult,
     remindersResult
@@ -93,6 +95,7 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
     supabase.from("rental_tour_details").select("*"),
     supabase.from("expense_items").select("*"),
     supabase.from("purchase_details").select("*"),
+    supabase.from("transaction_attachments").select("*"),
     supabase.from("tags").select("*"),
     supabase.from("transaction_tags").select("*"),
     supabase.from("reminders").select("*").order("due_date", { ascending: true })
@@ -120,6 +123,10 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
     (purchaseDetailsResult.data ?? []) as PurchaseDetail[],
     transactionIds
   );
+  const transactionAttachments = filterByTransactionId(
+    (transactionAttachmentsResult.data ?? []) as TransactionAttachment[],
+    transactionIds
+  );
   const reminders = ((remindersResult.data ?? []) as Reminder[]).filter(
     (reminder) => !reminder.transaction_id || transactionIds.has(reminder.transaction_id)
   );
@@ -136,6 +143,7 @@ export async function getDashboardData(userId?: string): Promise<DashboardData> 
     rentalTourDetails,
     expenseItems,
     purchaseDetails,
+    transactionAttachments,
     tagsByTransaction,
     reminders,
     eurUsdRate: getDefaultEurUsdRate()
@@ -182,6 +190,7 @@ export async function getDeletedTransactions(userId: string): Promise<TimelineEv
 
     return {
       ...transaction,
+      attachments: [],
       tags: tagsByTransaction[transaction.id] ?? [],
       linkedTitle: linkedId ? transactionsById.get(linkedId)?.title : undefined
     };

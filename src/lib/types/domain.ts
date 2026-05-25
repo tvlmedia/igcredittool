@@ -138,8 +138,20 @@ export type Reminder = {
   notes: string | null;
 };
 
+export type TransactionAttachment = {
+  id: string;
+  user_id: string;
+  transaction_id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  file_size: number | null;
+  created_at: string;
+};
+
 export type TimelineEvent = Transaction & {
   tags: Tag[];
+  attachments: TransactionAttachment[];
   linkedTitle?: string;
 };
 
@@ -177,6 +189,7 @@ export type DashboardData = {
   rentalTourDetails: RentalTourDetail[];
   expenseItems: ExpenseItem[];
   purchaseDetails: PurchaseDetail[];
+  transactionAttachments: TransactionAttachment[];
   reminders: Reminder[];
   sourceTransactions: Transaction[];
   metrics: {

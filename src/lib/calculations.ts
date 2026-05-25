@@ -11,6 +11,7 @@ import type {
   Tag,
   TimelineEvent,
   Transaction,
+  TransactionAttachment,
   TransactionType
 } from "@/lib/types/domain";
 
@@ -46,6 +47,7 @@ export function buildDashboardData(input: {
   rentalTourDetails: RentalTourDetail[];
   expenseItems: ExpenseItem[];
   purchaseDetails: PurchaseDetail[];
+  transactionAttachments: TransactionAttachment[];
   tagsByTransaction: Record<string, Tag[]>;
   reminders: DashboardData["reminders"];
   eurUsdRate: number;
@@ -66,6 +68,10 @@ export function buildDashboardData(input: {
   );
   const purchaseByTransaction = new Map(
     input.purchaseDetails.map((detail) => [detail.transaction_id, detail])
+  );
+  const attachmentsByTransaction = groupBy(
+    input.transactionAttachments,
+    (item) => item.transaction_id
   );
   const expenseItemsByTransaction = groupBy(
     input.expenseItems,
@@ -211,6 +217,7 @@ export function buildDashboardData(input: {
       return {
         ...transaction,
         tags: input.tagsByTransaction[transaction.id] ?? [],
+        attachments: attachmentsByTransaction.get(transaction.id) ?? [],
         linkedTitle
       };
     });
@@ -270,6 +277,7 @@ export function buildDashboardData(input: {
     rentalTourDetails: input.rentalTourDetails,
     expenseItems: input.expenseItems,
     purchaseDetails: input.purchaseDetails,
+    transactionAttachments: input.transactionAttachments,
     reminders: input.reminders,
     sourceTransactions,
     metrics: {

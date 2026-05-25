@@ -2,7 +2,18 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Calendar, Clock3, MapPin, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
+import {
+  Calendar,
+  Clock3,
+  Eye,
+  MapPin,
+  Paperclip,
+  Pencil,
+  RotateCcw,
+  Search,
+  Trash2,
+  X
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -10,6 +21,7 @@ import { Panel, SectionHeader } from "@/components/ui/panel";
 import { LocationAutocomplete } from "@/components/transactions/location-autocomplete";
 import {
   deleteTransaction,
+  deleteTransactionAttachment,
   restoreTransaction,
   updateTransaction,
   type TransactionActionState
@@ -234,6 +246,13 @@ export function Timeline({
                       {formatReminderStatus(daysUntil(reminder.due_date))}
                     </Badge>
                   ) : null}
+                  {transaction.attachments.length > 0 ? (
+                    <Badge>
+                      <Paperclip size={13} />
+                      {transaction.attachments.length} attachment
+                      {transaction.attachments.length === 1 ? "" : "s"}
+                    </Badge>
+                  ) : null}
                 </div>
               </div>
               <div className="rounded-md border border-white/10 bg-black/18 p-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
@@ -373,6 +392,18 @@ function getReminderUrgency(days: number) {
   };
 }
 
+function formatFileSize(value: number | null) {
+  if (!value) {
+    return "File";
+  }
+
+  if (value < 1_000_000) {
+    return `${Math.round(value / 1000)} KB`;
+  }
+
+  return `${(value / 1_000_000).toFixed(1)} MB`;
+}
+
 function EditTransactionForm({
   transaction,
   onSaved,
@@ -444,6 +475,60 @@ function EditTransactionForm({
       <Field label="Notes">
         <Textarea name="description" defaultValue={transaction.description ?? ""} />
       </Field>
+
+      <div className="grid gap-3 rounded-lg border border-white/10 bg-black/18 p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/46">
+              Attachments
+            </p>
+            <p className="mt-1 text-sm text-white/48">Receipts, invoices, screenshots or PDFs.</p>
+          </div>
+          <span className="text-xs text-white/38">{transaction.attachments.length} files</span>
+        </div>
+
+        <Field label="Upload file">
+          <Input name="attachment" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" />
+        </Field>
+
+        {transaction.attachments.length > 0 ? (
+          <div className="grid gap-2">
+            {transaction.attachments.map((attachment) => (
+              <div
+                key={attachment.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{attachment.file_name}</p>
+                  <p className="text-xs text-white/42">{formatFileSize(attachment.file_size)}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`/api/attachments/${attachment.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-iron-400/18 bg-white/[0.045] px-3 py-1.5 text-sm font-semibold text-white/82 transition hover:border-iron-400/34 hover:bg-iron-400/[0.08]"
+                  >
+                    <Eye size={15} />
+                    View
+                  </a>
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    icon={<Trash2 size={15} />}
+                    className="min-h-9 px-3 py-1.5"
+                    name="attachmentId"
+                    value={attachment.id}
+                    formAction={deleteTransactionAttachment}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCancel}>

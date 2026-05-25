@@ -267,6 +267,20 @@ export async function updateTransaction(
     };
   }
 
+  const attachmentError = await uploadTransactionAttachment({
+    supabase,
+    userId: user.id,
+    transactionId: parsed.data.transactionId,
+    file: formData.get("attachment")
+  });
+
+  if (attachmentError) {
+    return {
+      status: "error",
+      message: attachmentError
+    };
+  }
+
   await recordActivity({
     userId: user.id,
     action: "transaction_edited",
@@ -285,6 +299,52 @@ export async function updateTransaction(
     message: "Transaction updated.",
     warning: exchangeRateResult.warning
   };
+}
+
+export async function deleteTransactionAttachment(formData: FormData) {
+  if (!hasSupabaseEnv()) {
+    return;
+  }
+
+  const attachmentId = stringValue(formData.get("attachmentId"));
+  const transactionId = stringValue(formData.get("transactionId"));
+  if (!attachmentId || !transactionId) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  const { data: attachment, error: readError } = await supabase
+    .from("transaction_attachments")
+    .select("id,file_name,file_path")
+    .eq("id", attachmentId)
+    .eq("transaction_id", transactionId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (readError || !attachment) {
+    return;
+  }
+
+  await supabase.storage.from("transaction-attachments").remove([attachment.file_path]);
+  const { error: deleteError } = await supabase
+    .from("transaction_attachments")
+    .delete()
+    .eq("id", attachment.id)
+    .eq("user_id", user.id);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  revalidateTransactionViews();
 }
 
 export async function deleteTransaction(formData: FormData) {
@@ -395,6 +455,50 @@ function buildLocationPayload(formData: FormData) {
     latitude: nullableNumberValue(formData.get("latitude")),
     longitude: nullableNumberValue(formData.get("longitude"))
   };
+}
+
+async function uploadTransactionAttachment(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  transactionId: string;
+  file: FormDataEntryValue | null;
+}) {
+  if (!(input.file instanceof File) || input.file.size === 0) {
+    return null;
+  }
+
+  const fileName = sanitizeFileName(input.file.name);
+  const filePath = `${input.userId}/${input.transactionId}/${crypto.randomUUID()}-${fileName}`;
+  const { error: uploadError } = await input.supabase.storage
+    .from("transaction-attachments")
+    .upload(filePath, input.file, {
+      contentType: input.file.type || "application/octet-stream",
+      upsert: false
+    });
+
+  if (uploadError) {
+    return uploadError.message;
+  }
+
+  const { error: insertError } = await input.supabase.from("transaction_attachments").insert({
+    user_id: input.userId,
+    transaction_id: input.transactionId,
+    file_name: input.file.name || fileName,
+    file_path: filePath,
+    file_type: input.file.type || null,
+    file_size: input.file.size
+  });
+
+  if (insertError) {
+    await input.supabase.storage.from("transaction-attachments").remove([filePath]);
+    return insertError.message;
+  }
+
+  return null;
+}
+
+function sanitizeFileName(value: string) {
+  return value.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "attachment";
 }
 
 function buildTransactionPayload(input: {
