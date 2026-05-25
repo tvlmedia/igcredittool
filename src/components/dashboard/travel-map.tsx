@@ -5,8 +5,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type WheelEvent as ReactWheelEvent
+  type ReactNode
 } from "react";
 import {
   geoEqualEarth,
@@ -110,12 +109,6 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
     });
   }
 
-  function handleWheel(event: ReactWheelEvent<SVGSVGElement>) {
-    event.preventDefault();
-    const origin = getSvgEventPoint(event);
-    zoomMap(Math.exp(-event.deltaY * 0.0012), origin);
-  }
-
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
     if (event.button !== 0 || !isZoomed) {
       return;
@@ -206,7 +199,6 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
           className={`block aspect-[1.92/1] w-full touch-none ${
             isZoomed ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-zoom-in"
           }`}
-          onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endDrag}
@@ -373,9 +365,7 @@ function ZoomControlButton({
   );
 }
 
-function getSvgEventPoint(
-  event: ReactPointerEvent<SVGSVGElement> | ReactWheelEvent<SVGSVGElement>
-) {
+function getSvgEventPoint(event: ReactPointerEvent<SVGSVGElement>) {
   const rect = event.currentTarget.getBoundingClientRect();
 
   return {
