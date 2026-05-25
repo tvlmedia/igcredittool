@@ -48,7 +48,15 @@ export default async function TransactionsPage() {
         <ReminderPanel reminders={data.reminders} />
       </div>
 
-      <Timeline transactions={data.transactions} reminders={data.reminders} />
+      <Timeline
+        transactions={data.transactions}
+        reminders={data.reminders}
+        saleDetails={data.saleDetails}
+        expoDetails={data.expoDetails}
+        rentalTourDetails={data.rentalTourDetails}
+        expenseItems={data.expenseItems}
+        purchaseDetails={data.purchaseDetails}
+      />
     </div>
   );
 }

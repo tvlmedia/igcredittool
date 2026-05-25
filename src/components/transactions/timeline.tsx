@@ -28,7 +28,14 @@ import {
 } from "@/lib/actions/transactions";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { Currency, Reminder, TimelineEvent, TransactionType } from "@/lib/types/domain";
+import type {
+  Currency,
+  DashboardData,
+  ExpenseItem,
+  Reminder,
+  TimelineEvent,
+  TransactionType
+} from "@/lib/types/domain";
 import { transactionTypeColors, transactionTypeLabels } from "@/lib/types/domain";
 
 const initialUpdateState: TransactionActionState = {
@@ -39,11 +46,21 @@ const initialUpdateState: TransactionActionState = {
 export function Timeline({
   transactions,
   reminders = [],
+  saleDetails = [],
+  expoDetails = [],
+  rentalTourDetails = [],
+  expenseItems = [],
+  purchaseDetails = [],
   compact = false,
   mode = "active"
 }: {
   transactions: TimelineEvent[];
   reminders?: Reminder[];
+  saleDetails?: DashboardData["saleDetails"];
+  expoDetails?: DashboardData["expoDetails"];
+  rentalTourDetails?: DashboardData["rentalTourDetails"];
+  expenseItems?: DashboardData["expenseItems"];
+  purchaseDetails?: DashboardData["purchaseDetails"];
   compact?: boolean;
   mode?: "active" | "deleted";
 }) {
@@ -70,6 +87,26 @@ export function Timeline({
 
     return new Map(rows.map((reminder) => [reminder.transaction_id, reminder]));
   }, [reminders]);
+  const saleByTransaction = useMemo(
+    () => new Map(saleDetails.map((detail) => [detail.transaction_id, detail])),
+    [saleDetails]
+  );
+  const expoByTransaction = useMemo(
+    () => new Map(expoDetails.map((detail) => [detail.transaction_id, detail])),
+    [expoDetails]
+  );
+  const rentalByTransaction = useMemo(
+    () => new Map(rentalTourDetails.map((detail) => [detail.transaction_id, detail])),
+    [rentalTourDetails]
+  );
+  const purchaseByTransaction = useMemo(
+    () => new Map(purchaseDetails.map((detail) => [detail.transaction_id, detail])),
+    [purchaseDetails]
+  );
+  const expenseItemsByTransaction = useMemo(
+    () => groupExpenseItems(expenseItems),
+    [expenseItems]
+  );
 
   const filtered = useMemo(() => {
     return transactions.filter((transaction) => {
@@ -190,6 +227,16 @@ export function Timeline({
           const location = getLocationLabel(transaction);
           const reminder = remindersByTransaction.get(transaction.id);
           const urgency = reminder ? getReminderUrgency(daysUntil(reminder.due_date)) : null;
+          const calculationRows = getCalculationRows({
+            transaction,
+            saleDetail: saleByTransaction.get(transaction.id),
+            expoDetail: expoByTransaction.get(transaction.id),
+            rentalTourDetail: rentalByTransaction.get(transaction.id),
+            purchaseDetail: purchaseByTransaction.get(transaction.id),
+            expenseItems: expenseItemsByTransaction.get(transaction.id) ?? []
+          });
+          const amountLabel =
+            transaction.type === "purchase" ? "Final cost/spend" : "Final credit earned";
 
           return (
             <article
@@ -254,9 +301,12 @@ export function Timeline({
                     </Badge>
                   ) : null}
                 </div>
+                <CalculationBreakdown rows={calculationRows} />
               </div>
               <div className="rounded-md border border-white/10 bg-black/18 p-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/36">Credit earned</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/36">
+                  {amountLabel}
+                </p>
                 <p
                   className={`mt-1 text-xl font-semibold ${
                     transaction.original_amount < 0 ? "text-red-200" : "text-white"
@@ -340,6 +390,252 @@ function TypeBadge({ type }: { type: TransactionType }) {
       {transactionTypeLabels[type]}
     </Badge>
   );
+}
+
+function CalculationBreakdown({ rows }: { rows: CalculationRow[] }) {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 grid gap-2 rounded-md border border-white/10 bg-black/14 p-3 sm:grid-cols-2">
+      {rows.map((row) => (
+        <div key={row.label}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/34">
+            {row.label}
+          </p>
+          <p className={`mt-0.5 text-sm font-semibold ${row.emphasis ? "text-iron-300" : "text-white/74"}`}>
+            {row.value}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type CalculationRow = {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+};
+
+function getCalculationRows(input: {
+  transaction: TimelineEvent;
+  saleDetail?: DashboardData["saleDetails"][number];
+  expoDetail?: DashboardData["expoDetails"][number];
+  rentalTourDetail?: DashboardData["rentalTourDetails"][number];
+  purchaseDetail?: DashboardData["purchaseDetails"][number];
+  expenseItems: ExpenseItem[];
+}): CalculationRow[] {
+  if (input.transaction.type === "sale") {
+    const saleAmount = input.saleDetail?.sale_amount ?? Math.abs(Number(input.transaction.original_amount));
+    const saleCurrency = input.saleDetail?.sale_currency ?? input.transaction.currency;
+    const creditPercentage = input.saleDetail?.credit_percentage ?? 100;
+
+    return [
+      { label: "Sale amount", value: formatCurrency(Number(saleAmount), saleCurrency) },
+      { label: "Credit percentage", value: `${formatNumber(Number(creditPercentage))}%` },
+      {
+        label: "Final credit earned",
+        value: formatCurrency(Number(input.transaction.original_amount), input.transaction.currency),
+        emphasis: true
+      }
+    ];
+  }
+
+  if (input.transaction.type === "expo") {
+    const days = Math.max(1, Number(input.expoDetail?.days_count ?? 1));
+    const dailyCredits = normalizeDailyCredits(input.expoDetail?.daily_credits);
+    const defaultCreditPerDay = Number(
+      input.expoDetail?.default_credit_per_day ??
+        (dailyCredits.length > 0 ? dailyCredits[0] : Number(input.transaction.original_amount) / days)
+    );
+    const grossExpoCredit =
+      dailyCredits.length > 0
+        ? dailyCredits.reduce((sum, value) => sum + value, 0)
+        : Number(input.transaction.original_amount);
+    const expensesMultiplier = Number(input.expoDetail?.expenses_multiplier ?? 1);
+    const expenseTotals = groupCurrencyAmounts(
+      input.expenseItems.map((item) => ({
+        currency: item.currency,
+        amount: Number(item.amount)
+      }))
+    );
+    const expenseCreditTotals = groupCurrencyAmounts(
+      input.expenseItems.map((item) => ({
+        currency: item.currency,
+        amount: Number(item.amount) * expensesMultiplier
+      }))
+    );
+    const finalTotals = addGroupedAmount(
+      expenseCreditTotals,
+      input.transaction.currency,
+      grossExpoCredit
+    );
+
+    return [
+      {
+        label: "Expo credit/day",
+        value: formatCurrency(defaultCreditPerDay, input.transaction.currency)
+      },
+      { label: "Number of days", value: `${days}` },
+      {
+        label: "Gross expo credit",
+        value: formatCurrency(grossExpoCredit, input.transaction.currency)
+      },
+      {
+        label: "Expenses",
+        value: formatGroupedAmounts(expenseTotals, input.transaction.currency)
+      },
+      { label: "Expenses multiplier", value: `x${formatNumber(expensesMultiplier)}` },
+      {
+        label: "Expense credit",
+        value: formatGroupedAmounts(expenseCreditTotals, input.transaction.currency)
+      },
+      {
+        label: "Final credit earned",
+        value: formatGroupedAmounts(finalTotals, input.transaction.currency),
+        emphasis: true
+      }
+    ];
+  }
+
+  if (input.transaction.type === "expense") {
+    return [
+      {
+        label: "Expense amount",
+        value: formatCurrency(Number(input.transaction.original_amount), input.transaction.currency)
+      },
+      { label: "Multiplier", value: "x1" },
+      {
+        label: "Final credit earned",
+        value: formatCurrency(Number(input.transaction.original_amount), input.transaction.currency),
+        emphasis: true
+      }
+    ];
+  }
+
+  if (input.transaction.type === "rental_tour") {
+    const expensesMultiplier = Number(input.rentalTourDetail?.expenses_multiplier ?? 1);
+    const expenseTotals = groupCurrencyAmounts(
+      input.expenseItems.map((item) => ({
+        currency: item.currency,
+        amount: Number(item.amount)
+      }))
+    );
+    const expenseCreditTotals = groupCurrencyAmounts(
+      input.expenseItems.map((item) => ({
+        currency: item.currency,
+        amount: Number(item.amount) * expensesMultiplier
+      }))
+    );
+    const hasExpenses = input.expenseItems.length > 0;
+
+    return [
+      {
+        label: "Tour/day amount",
+        value: hasExpenses
+          ? "From expenses"
+          : formatCurrency(Number(input.transaction.original_amount), input.transaction.currency)
+      },
+      { label: "Days", value: "Not tracked" },
+      {
+        label: "Expenses",
+        value: hasExpenses ? formatGroupedAmounts(expenseTotals, input.transaction.currency) : "None"
+      },
+      { label: "Expenses multiplier", value: `x${formatNumber(expensesMultiplier)}` },
+      {
+        label: "Final credit earned",
+        value: hasExpenses
+          ? formatGroupedAmounts(expenseCreditTotals, input.transaction.currency)
+          : formatCurrency(Number(input.transaction.original_amount), input.transaction.currency),
+        emphasis: true
+      }
+    ];
+  }
+
+  const purchaseAmount = Math.abs(Number(input.transaction.original_amount));
+
+  return [
+    {
+      label: "Purchase amount",
+      value: formatCurrency(purchaseAmount, input.transaction.currency)
+    },
+    { label: "Currency", value: input.transaction.currency },
+    input.purchaseDetail
+      ? {
+          label: "Payment mode",
+          value: formatPaymentMode(input.purchaseDetail.payment_mode)
+        }
+      : null,
+    {
+      label: "Final cost/spend",
+      value: formatCurrency(purchaseAmount, input.transaction.currency),
+      emphasis: true
+    }
+  ].filter((row): row is CalculationRow => Boolean(row));
+}
+
+function groupExpenseItems(items: ExpenseItem[]) {
+  return items.reduce<Map<string, ExpenseItem[]>>((map, item) => {
+    map.set(item.transaction_id, [...(map.get(item.transaction_id) ?? []), item]);
+    return map;
+  }, new Map());
+}
+
+function normalizeDailyCredits(value: unknown) {
+  return Array.isArray(value)
+    ? value.map(Number).filter((item) => Number.isFinite(item) && item >= 0)
+    : [];
+}
+
+function groupCurrencyAmounts(items: Array<{ currency: Currency; amount: number }>) {
+  return items.reduce<Partial<Record<Currency, number>>>((grouped, item) => {
+    if (!Number.isFinite(item.amount)) {
+      return grouped;
+    }
+
+    grouped[item.currency] = (grouped[item.currency] ?? 0) + item.amount;
+    return grouped;
+  }, {});
+}
+
+function addGroupedAmount(
+  grouped: Partial<Record<Currency, number>>,
+  currency: Currency,
+  amount: number
+) {
+  return groupCurrencyAmounts([
+    ...Object.entries(grouped).map(([key, value]) => ({
+      currency: key as Currency,
+      amount: value ?? 0
+    })),
+    { currency, amount }
+  ]);
+}
+
+function formatGroupedAmounts(grouped: Partial<Record<Currency, number>>, preferredCurrency: Currency) {
+  const currencies = [
+    preferredCurrency,
+    ...(["USD", "EUR"] as Currency[]).filter((currency) => currency !== preferredCurrency)
+  ];
+  const parts = currencies
+    .map((currency) => ({
+      currency,
+      amount: grouped[currency] ?? 0
+    }))
+    .filter((item) => Math.abs(item.amount) > 0.000001)
+    .map((item) => formatCurrency(item.amount, item.currency));
+
+  return parts.length > 0 ? parts.join(" + ") : formatCurrency(0, preferredCurrency);
+}
+
+function formatNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatPaymentMode(value: string) {
+  return value.replaceAll("_", " ");
 }
 
 function getLocationLabel(transaction: TimelineEvent) {
