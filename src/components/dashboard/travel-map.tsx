@@ -16,7 +16,7 @@ import countriesTopologyData from "world-atlas/countries-110m.json";
 import { Panel, SectionHeader } from "@/components/ui/panel";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { TimelineEvent } from "@/lib/types/domain";
-import { transactionTypeLabels } from "@/lib/types/domain";
+import { transactionTypeColors, transactionTypeLabels } from "@/lib/types/domain";
 
 const width = 1000;
 const height = 520;
@@ -24,14 +24,6 @@ const homeBase = {
   label: "Beek en Donk, Netherlands",
   latitude: 51.535,
   longitude: 5.63
-};
-
-const typeColors: Record<TimelineEvent["type"], { core: string; glow: string }> = {
-  expo: { core: "#f59e42", glow: "rgba(245,158,66,0.38)" },
-  sale: { core: "#67e8f9", glow: "rgba(103,232,249,0.32)" },
-  rental_tour: { core: "#f8fafc", glow: "rgba(248,250,252,0.28)" },
-  expense: { core: "#e06a6f", glow: "rgba(224,106,111,0.3)" },
-  purchase: { core: "#d6b46a", glow: "rgba(214,180,106,0.3)" }
 };
 
 type MapPoint = {
@@ -99,11 +91,6 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
               <stop offset="58%" stopColor="#0d1116" />
               <stop offset="100%" stopColor="#050608" />
             </radialGradient>
-            <linearGradient id="route-stroke" x1="0%" x2="100%" y1="0%" y2="0%">
-              <stop offset="0%" stopColor="rgba(245,158,66,0.04)" />
-              <stop offset="50%" stopColor="rgba(245,158,66,0.62)" />
-              <stop offset="100%" stopColor="rgba(245,158,66,0.08)" />
-            </linearGradient>
             <filter id="route-glow" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="2.4" result="blur" />
               <feMerge>
@@ -153,19 +140,23 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
           <path d={paths.land} fill="rgba(129,139,151,0.18)" stroke="rgba(255,255,255,0.09)" />
           <path d={paths.borders} fill="none" stroke="rgba(255,255,255,0.075)" strokeWidth="0.55" />
 
-          {points.map((point) => (
-            <path
-              key={`route-${point.id}`}
-              d={buildRoutePath(projection, point)}
-              className="travel-route"
-              fill="none"
-              stroke="url(#route-stroke)"
-              strokeWidth={hoveredId === point.id ? "1.85" : "1.15"}
-              strokeLinecap="round"
-              filter="url(#route-glow)"
-              opacity={hoveredId && hoveredId !== point.id ? "0.32" : "0.8"}
-            />
-          ))}
+          {points.map((point) => {
+            const color = transactionTypeColors[point.type];
+
+            return (
+              <path
+                key={`route-${point.id}`}
+                d={buildRoutePath(projection, point)}
+                className="travel-route"
+                fill="none"
+                stroke={color.core}
+                strokeWidth={hoveredId === point.id ? "1.85" : "1.15"}
+                strokeLinecap="round"
+                filter="url(#route-glow)"
+                opacity={hoveredId && hoveredId !== point.id ? "0.28" : "0.62"}
+              />
+            );
+          })}
 
           <g transform={`translate(${home[0]} ${home[1]})`}>
             <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
@@ -177,7 +168,7 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
           </g>
 
           {points.map((point) => {
-            const color = typeColors[point.type];
+            const color = transactionTypeColors[point.type];
             const [x, y] = point.projected;
 
             return (
@@ -210,7 +201,7 @@ export function TravelMap({ transactions }: { transactions: TimelineEvent[] }) {
         </div>
       ) : (
         <div className="mt-4 grid gap-2 md:grid-cols-5">
-          {Object.entries(typeColors).map(([type, color]) => (
+          {Object.entries(transactionTypeColors).map(([type, color]) => (
             <div
               key={type}
               className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs text-white/52"
@@ -316,12 +307,12 @@ function MapTooltip({ point }: { point: MapPoint }) {
         height={tooltipHeight}
         rx="10"
         fill="rgba(8,10,13,0.92)"
-        stroke="rgba(245,158,66,0.26)"
+        stroke={transactionTypeColors[point.type].border}
       />
       <text x="14" y="24" fill="rgba(255,255,255,0.9)" fontSize="13" fontWeight="600">
         {truncate(point.title, 26)}
       </text>
-      <text x="14" y="45" fill={typeColors[point.type].core} fontSize="11" letterSpacing="0.04em">
+      <text x="14" y="45" fill={transactionTypeColors[point.type].core} fontSize="11" letterSpacing="0.04em">
         {transactionTypeLabels[point.type].toUpperCase()}
       </text>
       <text x="14" y="66" fill="rgba(255,255,255,0.62)" fontSize="12">

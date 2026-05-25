@@ -18,7 +18,7 @@ import { getDefaultEurUsdRate } from "@/lib/env";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Currency, TimelineEvent, TransactionType } from "@/lib/types/domain";
-import { transactionTypeLabels } from "@/lib/types/domain";
+import { transactionTypeColors, transactionTypeLabels } from "@/lib/types/domain";
 
 const initialUpdateState: TransactionActionState = {
   status: "idle",
@@ -156,17 +156,22 @@ export function Timeline({
             Number(transaction.original_amount),
             transaction.currency
           );
+          const typeColor = transactionTypeColors[transaction.type];
 
           return (
             <article
               key={transaction.id}
-              className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.045] p-4 transition hover:bg-white/[0.065] md:grid-cols-[150px_1fr_auto]"
+              className="grid gap-4 rounded-lg border border-l-2 border-white/10 bg-white/[0.045] p-4 transition hover:bg-white/[0.065] md:grid-cols-[150px_1fr_auto]"
+              style={{
+                borderLeftColor: typeColor.core,
+                boxShadow: `inset 8px 0 22px ${typeColor.glow}`
+              }}
             >
               <div className="text-sm text-white/48">{formatDate(transaction.date)}</div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold text-white">{transaction.title}</h3>
-                  <Badge>{transactionTypeLabels[transaction.type]}</Badge>
+                  <TypeBadge type={transaction.type} />
                   {transaction.linkedTitle ? <Badge>Source: {transaction.linkedTitle}</Badge> : null}
                 </div>
                 {transaction.description ? (
@@ -257,6 +262,22 @@ export function Timeline({
         ) : null}
       </div>
     </Panel>
+  );
+}
+
+function TypeBadge({ type }: { type: TransactionType }) {
+  const color = transactionTypeColors[type];
+
+  return (
+    <Badge
+      style={{
+        borderColor: color.border,
+        backgroundColor: color.background,
+        color: color.text
+      }}
+    >
+      {transactionTypeLabels[type]}
+    </Badge>
   );
 }
 

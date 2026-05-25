@@ -6,6 +6,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
@@ -17,7 +18,7 @@ import {
 import { Panel, SectionHeader } from "@/components/ui/panel";
 import { formatCompactCurrency, formatCurrency, formatPercent } from "@/lib/format";
 import type { DashboardData } from "@/lib/types/domain";
-import { transactionTypeLabels } from "@/lib/types/domain";
+import { transactionTypeColors, transactionTypeLabels } from "@/lib/types/domain";
 
 export function CreditCharts({ data }: { data: DashboardData }) {
   return (
@@ -77,10 +78,36 @@ export function CreditCharts({ data }: { data: DashboardData }) {
                 axisLine={false}
               />
               <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="value" fill="#e1b45f" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="value" fillOpacity={0.88} radius={[5, 5, 0, 0]}>
+                {data.breakdown.map((item) => (
+                  <Cell key={item.type} fill={transactionTypeColors[item.type].core} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
+        {data.breakdown.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.breakdown.map((item) => {
+              const color = transactionTypeColors[item.type];
+
+              return (
+                <span
+                  key={item.type}
+                  className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium"
+                  style={{
+                    borderColor: color.border,
+                    backgroundColor: color.background,
+                    color: color.text
+                  }}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color.core }} />
+                  {transactionTypeLabels[item.type]}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
       </Panel>
 
       <Panel className="xl:col-span-2">
@@ -139,7 +166,11 @@ function ChartTooltip({ active, payload, label }: TooltipProps) {
 
   return (
     <div className="rounded-md border border-white/10 bg-carbon-900/95 p-3 text-sm shadow-panel">
-      <p className="mb-2 font-semibold text-white">{label}</p>
+      <p className="mb-2 font-semibold text-white">
+        {typeof label === "string" && label in transactionTypeLabels
+          ? transactionTypeLabels[label as keyof typeof transactionTypeLabels]
+          : label}
+      </p>
       {payload.map((item) => (
         <p key={item.name} className="text-white/68">
           {item.name}: <span className="text-white">{formatCurrency(Number(item.value), "USD")}</span>

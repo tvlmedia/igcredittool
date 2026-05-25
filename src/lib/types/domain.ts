@@ -176,3 +176,50 @@ export const transactionTypeLabels: Record<TransactionType, string> = {
   expense: "Expense",
   purchase: "Purchase"
 };
+
+export const transactionTypeColors: Record<
+  TransactionType,
+  {
+    core: string;
+    text: string;
+    background: string;
+    border: string;
+    glow: string;
+  }
+> = {
+  sale: {
+    core: "#67e8f9",
+    text: "#a5f3fc",
+    background: "rgba(103,232,249,0.1)",
+    border: "rgba(103,232,249,0.28)",
+    glow: "rgba(103,232,249,0.13)"
+  },
+  expo: {
+    core: "#f59e42",
+    text: "#fed7aa",
+    background: "rgba(245,158,66,0.11)",
+    border: "rgba(245,158,66,0.3)",
+    glow: "rgba(245,158,66,0.14)"
+  },
+  rental_tour: {
+    core: "#c4b5fd",
+    text: "#ddd6fe",
+    background: "rgba(196,181,253,0.1)",
+    border: "rgba(196,181,253,0.28)",
+    glow: "rgba(196,181,253,0.13)"
+  },
+  expense: {
+    core: "#e06a6f",
+    text: "#fecaca",
+    background: "rgba(224,106,111,0.1)",
+    border: "rgba(224,106,111,0.28)",
+    glow: "rgba(224,106,111,0.12)"
+  },
+  purchase: {
+    core: "#d6b46a",
+    text: "#fde68a",
+    background: "rgba(214,180,106,0.11)",
+    border: "rgba(214,180,106,0.3)",
+    glow: "rgba(214,180,106,0.13)"
+  }
+};
