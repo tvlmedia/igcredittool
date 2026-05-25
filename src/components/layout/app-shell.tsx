@@ -8,6 +8,7 @@ import {
   BarChart3,
   CircleDollarSign,
   Compass,
+  FolderArchive,
   LayoutDashboard,
   Shield,
   Sparkles,
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/transactions", label: "Transactions", icon: CircleDollarSign },
   { href: "/insights", label: "Insights", icon: Sparkles },
   { href: "/journey", label: "Journey", icon: Compass },
+  { href: "/reports", label: "Reports", icon: FolderArchive },
   { href: "/profile", label: "Profile", icon: UserRound },
   { href: "/admin", label: "Admin", icon: Shield }
 ] as const;

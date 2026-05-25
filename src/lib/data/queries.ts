@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   DashboardData,
   ActivityLog,
+  CreditSnapshot,
   ExpenseItem,
   ExpoDetail,
   OwnedLens,
@@ -71,6 +72,24 @@ export async function getRecentActivity(
   }
 
   return (data ?? []) as ActivityLog[];
+}
+
+export async function getCreditSnapshots(
+  userId: string,
+  client?: SupabaseClient
+): Promise<CreditSnapshot[]> {
+  const supabase = await createQueryClient(client);
+  const { data, error } = await supabase
+    .from("credit_snapshots")
+    .select("*")
+    .eq("user_id", userId)
+    .order("period_start", { ascending: false });
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []) as CreditSnapshot[];
 }
 
 export async function getDashboardData(
