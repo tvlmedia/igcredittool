@@ -450,6 +450,31 @@ export function transactionAmountToUsd(input: {
   return calculateTransactionBreakdown(input).usdEquivalent;
 }
 
+export function buildLiveFxMetrics(
+  data: Pick<DashboardData, "metrics" | "purchaseDetails">,
+  eurUsdRate: number
+): DashboardData["metrics"] {
+  const currentBalanceUsd = Math.round(
+    data.metrics.eurReserve * eurUsdRate + data.metrics.usdReserve
+  );
+  const livePurchaseSpendUsd = data.purchaseDetails.reduce(
+    (sum, purchase) =>
+      sum +
+      Number(purchase.usd_credit_used) +
+      Number(purchase.eur_credit_converted) * eurUsdRate,
+    0
+  );
+  const totalSpentUsd = Math.round(livePurchaseSpendUsd || data.metrics.totalSpentUsd);
+
+  return {
+    ...data.metrics,
+    totalCreditUsd: currentBalanceUsd,
+    totalEarnedUsd: currentBalanceUsd + totalSpentUsd,
+    totalSpentUsd,
+    currentBalanceUsd
+  };
+}
+
 export function groupCurrencyAmounts(items: CurrencyAmount[]): CurrencyAmount[] {
   const grouped = items.reduce<Partial<Record<Currency, number>>>((acc, item) => {
     if (!Number.isFinite(item.amount)) {

@@ -50,6 +50,27 @@ export type ActivityLog = {
   created_at: string;
 };
 
+export type CreditSnapshot = {
+  id: string;
+  user_id: string;
+  month: number;
+  year: number;
+  period_start: string;
+  period_end: string;
+  eur_reserve: number;
+  usd_reserve: number;
+  live_eur_usd_rate: number;
+  total_usd_equivalent: number;
+  total_earned: number;
+  total_spent: number;
+  transaction_count: number;
+  countries_visited: number;
+  cities_visited: number;
+  report_data: Record<string, unknown>;
+  created_at: string;
+  emailed_at: string | null;
+};
+
 export type Transaction = {
   id: string;
   user_id: string;

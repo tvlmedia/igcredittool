@@ -8,10 +8,10 @@ import { UpcomingExpirations } from "@/components/dashboard/upcoming-expirations
 import { CreditCharts } from "@/components/charts/credit-charts";
 import { TransactionForm } from "@/components/transactions/transaction-form";
 import { Timeline } from "@/components/transactions/timeline";
+import { buildLiveFxMetrics } from "@/lib/calculations";
 import { getDashboardData, getRecentActivity } from "@/lib/data/queries";
 import { getLiveEurUsdRate } from "@/lib/fx";
 import { createClient } from "@/lib/supabase/server";
-import type { DashboardData } from "@/lib/types/domain";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     getLiveEurUsdRate(),
     getRecentActivity(user.id)
   ]);
-  const liveMetrics = getLiveFxMetrics(data, liveFx.rate);
+  const liveMetrics = buildLiveFxMetrics(data, liveFx.rate);
   const liveData = { ...data, metrics: liveMetrics };
 
   return (
@@ -56,26 +56,4 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function getLiveFxMetrics(data: DashboardData, eurUsdRate: number): DashboardData["metrics"] {
-  const currentBalanceUsd = Math.round(
-    data.metrics.eurReserve * eurUsdRate + data.metrics.usdReserve
-  );
-  const livePurchaseSpendUsd = data.purchaseDetails.reduce(
-    (sum, purchase) =>
-      sum +
-      Number(purchase.usd_credit_used) +
-      Number(purchase.eur_credit_converted) * eurUsdRate,
-    0
-  );
-  const totalSpentUsd = Math.round(livePurchaseSpendUsd || data.metrics.totalSpentUsd);
-
-  return {
-    ...data.metrics,
-    totalCreditUsd: currentBalanceUsd,
-    totalEarnedUsd: currentBalanceUsd + totalSpentUsd,
-    totalSpentUsd,
-    currentBalanceUsd
-  };
 }
