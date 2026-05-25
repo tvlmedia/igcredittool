@@ -101,6 +101,8 @@ export function TravelMap({
   );
   const hoveredPoint = points.find((point) => point.id === hoveredId) ?? null;
   const isZoomed = transform.scale > minZoom;
+  const hoveredOverlay = hoveredPoint ? getOverlayPosition(hoveredPoint.projected, transform) : null;
+  const homeOverlay = home ? getOverlayPosition(home, transform) : null;
 
   function zoomMap(factor: number, origin = { x: width / 2, y: height / 2 }) {
     setTransform((current) => {
@@ -292,9 +294,6 @@ export function TravelMap({
                 <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
                 <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
                 <circle r="2.2" fill="#fff7ed" />
-                <text x="14" y="-12" fill="rgba(255,255,255,0.72)" fontSize="12" letterSpacing="0.04em">
-                  {homeBase.label}
-                </text>
               </g>
             ) : null}
 
@@ -322,9 +321,22 @@ export function TravelMap({
               );
             })}
 
-            {hoveredPoint ? <MapTooltip point={hoveredPoint} /> : null}
           </g>
         </svg>
+        {homeBase && homeOverlay ? (
+          <div
+            className="pointer-events-none absolute z-10 hidden -translate-y-full translate-x-3 rounded-full border border-iron-400/18 bg-carbon-950/82 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/72 shadow-2xl shadow-black/30 backdrop-blur-xl md:block"
+            style={{
+              left: `${homeOverlay.xPercent}%`,
+              top: `${homeOverlay.yPercent}%`
+            }}
+          >
+            {homeBase.label}
+          </div>
+        ) : null}
+        {hoveredPoint && hoveredOverlay ? (
+          <MapTooltip point={hoveredPoint} position={hoveredOverlay} />
+        ) : null}
       </div>
 
       {points.length === 0 ? (
@@ -405,6 +417,15 @@ function clampMapTransform(transform: MapTransform): MapTransform {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function getOverlayPosition(projected: [number, number], transform: MapTransform) {
+  return {
+    x: projected[0] * transform.scale + transform.x,
+    y: projected[1] * transform.scale + transform.y,
+    xPercent: (clamp(projected[0] * transform.scale + transform.x, 18, width - 18) / width) * 100,
+    yPercent: (clamp(projected[1] * transform.scale + transform.y, 18, height - 18) / height) * 100
+  };
 }
 
 function createProjection() {
@@ -488,43 +509,44 @@ function buildRoutePath(
   return coordinates.filter(Boolean).join(" ");
 }
 
-function MapTooltip({ point }: { point: MapPoint }) {
-  const [x, y] = point.projected;
-  const tooltipWidth = 220;
-  const tooltipHeight = 116;
-  const tooltipX = Math.min(Math.max(x + 18, 18), width - tooltipWidth - 18);
-  const tooltipY = Math.min(Math.max(y - tooltipHeight - 18, 18), height - tooltipHeight - 18);
+function MapTooltip({
+  point,
+  position
+}: {
+  point: MapPoint;
+  position: ReturnType<typeof getOverlayPosition>;
+}) {
+  const nearRight = position.x > width - 280;
+  const nearTop = position.y < 145;
 
   return (
-    <g transform={`translate(${tooltipX} ${tooltipY})`} pointerEvents="none">
-      <rect
-        width={tooltipWidth}
-        height={tooltipHeight}
-        rx="10"
-        fill="rgba(8,10,13,0.92)"
-        stroke={transactionTypeColors[point.type].border}
-      />
-      <text x="14" y="24" fill="rgba(255,255,255,0.9)" fontSize="13" fontWeight="600">
-        {truncate(point.title, 26)}
-      </text>
-      <text x="14" y="45" fill={transactionTypeColors[point.type].core} fontSize="11" letterSpacing="0.04em">
-        {transactionTypeLabels[point.type].toUpperCase()}
-      </text>
-      <text x="14" y="66" fill="rgba(255,255,255,0.62)" fontSize="12">
-        {truncate([point.city, point.country].filter(Boolean).join(", ") || point.location, 30)}
-      </text>
-      <text x="14" y="88" fill="rgba(255,255,255,0.78)" fontSize="12">
-        {point.amount}
-      </text>
-      <text x="118" y="88" fill="rgba(255,255,255,0.5)" fontSize="12">
-        {point.date}
-      </text>
-    </g>
+    <div
+      className="pointer-events-none absolute z-20 w-[min(230px,calc(100%-24px))] rounded-lg border bg-carbon-950/92 p-3 shadow-2xl shadow-black/40 backdrop-blur-xl"
+      style={{
+        borderColor: transactionTypeColors[point.type].border,
+        left: `${position.xPercent}%`,
+        top: `${position.yPercent}%`,
+        transform: `translate(${nearRight ? "calc(-100% - 14px)" : "14px"}, ${
+          nearTop ? "14px" : "calc(-100% - 14px)"
+        })`
+      }}
+    >
+      <p className="truncate text-sm font-semibold text-white/90">{point.title}</p>
+      <p
+        className="mt-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
+        style={{ color: transactionTypeColors[point.type].core }}
+      >
+        {transactionTypeLabels[point.type]}
+      </p>
+      <p className="mt-2 truncate text-xs text-white/62">
+        {[point.city, point.country].filter(Boolean).join(", ") || point.location}
+      </p>
+      <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+        <span className="font-semibold text-white/78">{point.amount}</span>
+        <span className="text-white/50">{point.date}</span>
+      </div>
+    </div>
   );
-}
-
-function truncate(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
 }
 
 function parseCoordinate(value: string | number | null) {
