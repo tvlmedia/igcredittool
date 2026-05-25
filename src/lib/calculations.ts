@@ -25,7 +25,7 @@ const trackedTypes: TransactionType[] = [
 
 export function amountToUsd(transaction: Transaction, eurUsdRate: number) {
   if (transaction.currency === "EUR") {
-    return Number(transaction.original_amount) * eurUsdRate;
+    return Number(transaction.original_amount) * snapshotRate(transaction.exchange_rate_snapshot, eurUsdRate);
   }
 
   return Number(transaction.original_amount);
@@ -33,7 +33,7 @@ export function amountToUsd(transaction: Transaction, eurUsdRate: number) {
 
 export function expenseToUsd(item: ExpenseItem, eurUsdRate: number) {
   if (item.currency === "EUR") {
-    return Number(item.amount) * eurUsdRate;
+    return Number(item.amount) * snapshotRate(item.exchange_rate_snapshot, eurUsdRate);
   }
 
   return Number(item.amount);
@@ -171,11 +171,20 @@ export function buildDashboardData(input: {
       0
     );
     const salesUsd = (linkedSalesBySource.get(source.id) ?? []).reduce(
-      (sum, sale) =>
-        sum +
-        (sale.sale_currency === "EUR"
-          ? Number(sale.sale_amount) * input.eurUsdRate
-          : Number(sale.sale_amount)),
+      (sum, sale) => {
+        const saleTransaction = transactionsById.get(sale.transaction_id);
+        const exchangeRate = snapshotRate(
+          saleTransaction?.exchange_rate_snapshot ?? null,
+          input.eurUsdRate
+        );
+
+        return (
+          sum +
+          (sale.sale_currency === "EUR"
+            ? Number(sale.sale_amount) * exchangeRate
+            : Number(sale.sale_amount))
+        );
+      },
       0
     );
     const costUsd = expenseCostUsd * multiplier;
@@ -291,6 +300,11 @@ export function buildDashboardData(input: {
       mostValuableSource: sortedProfitability[0] ?? null
     }
   };
+}
+
+function snapshotRate(value: number | string | null, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function transactionAmountToUsd(input: {

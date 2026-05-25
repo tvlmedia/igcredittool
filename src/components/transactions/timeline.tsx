@@ -14,7 +14,6 @@ import {
   updateTransaction,
   type TransactionActionState
 } from "@/lib/actions/transactions";
-import { getDefaultEurUsdRate } from "@/lib/env";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Currency, TimelineEvent, TransactionType } from "@/lib/types/domain";
@@ -305,6 +304,9 @@ function EditTransactionForm({
   useEffect(() => {
     if (state.status === "success") {
       toast.success(state.message);
+      if (state.warning) {
+        toast(state.warning);
+      }
       onSaved();
     }
 
@@ -319,21 +321,12 @@ function EditTransactionForm({
       className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-4 md:col-span-3"
     >
       <input type="hidden" name="transactionId" value={transaction.id} />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <Field label="Title">
           <Input name="title" required defaultValue={transaction.title} />
         </Field>
         <Field label="Date">
           <Input name="date" type="date" required defaultValue={transaction.date} />
-        </Field>
-        <Field label="Exchange rate">
-          <Input
-            name="exchangeRate"
-            type="number"
-            min="0"
-            step="0.0001"
-            defaultValue={Number(transaction.exchange_rate_snapshot ?? getDefaultEurUsdRate())}
-          />
         </Field>
       </div>
 

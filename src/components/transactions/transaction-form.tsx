@@ -19,7 +19,6 @@ import {
   createTransaction,
   type TransactionActionState
 } from "@/lib/actions/transactions";
-import { getDefaultEurUsdRate } from "@/lib/env";
 import type { Currency, Transaction, TransactionType } from "@/lib/types/domain";
 import { transactionTypeLabels } from "@/lib/types/domain";
 
@@ -102,6 +101,10 @@ export function TransactionForm({
       toast.success(state.message);
     }
 
+    if (state.warning) {
+      toast(state.warning);
+    }
+
     if (state.status === "error") {
       toast.error(state.message);
     }
@@ -169,7 +172,7 @@ export function TransactionForm({
           })}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Field label="Title">
             <Input name="title" required placeholder="Follow-up sale" />
           </Field>
@@ -184,15 +187,6 @@ export function TransactionForm({
                 setDate(nextDate);
                 setReminderDueDate(getDefaultReminderDate(nextDate));
               }}
-            />
-          </Field>
-          <Field label="EUR to USD rate">
-            <Input
-              name="exchangeRate"
-              type="number"
-              min="0"
-              step="0.0001"
-              defaultValue={getDefaultEurUsdRate()}
             />
           </Field>
         </div>

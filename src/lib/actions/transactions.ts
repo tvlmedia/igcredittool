@@ -2,14 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hasSupabaseEnv } from "@/lib/env";
+import { getDefaultEurUsdRate, hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import type { Currency, TransactionType } from "@/lib/types/domain";
 
 export type TransactionActionState = {
   status: "idle" | "success" | "error";
   message: string;
+  warning?: string;
 };
+
+const fallbackExchangeRateWarning = "Using fallback exchange rate";
 
 const expenseItemSchema = z.object({
   label: z.string().min(1),
@@ -23,8 +26,7 @@ const baseSchema = z.object({
   date: z.string().min(1, "Date is required"),
   description: z.string().optional(),
   tags: z.string().optional(),
-  currency: z.enum(["EUR", "USD"]),
-  exchangeRate: z.coerce.number().positive()
+  currency: z.enum(["EUR", "USD"])
 });
 
 const updateSchema = z.object({
@@ -33,8 +35,7 @@ const updateSchema = z.object({
   date: z.string().min(1, "Date is required"),
   description: z.string().optional(),
   currency: z.enum(["EUR", "USD"]),
-  originalAmount: z.coerce.number(),
-  exchangeRate: z.coerce.number().positive()
+  originalAmount: z.coerce.number()
 });
 
 export async function createTransaction(
@@ -69,7 +70,8 @@ export async function createTransaction(
     const type = parsed.data.type;
     const expenseItems = parseExpenseItems(formData.get("expenseItemsJson"));
     const dailyCredits = parseDailyCredits(formData.get("dailyCreditsJson"));
-    const exchangeRate = parsed.data.exchangeRate;
+    const exchangeRateResult = await getCurrentEurUsdRate();
+    const exchangeRate = exchangeRateResult.rate;
     const location = buildLocationPayload(formData);
     const detail = buildTransactionPayload({
       type,
@@ -112,6 +114,7 @@ export async function createTransaction(
       transactionId: transaction.id,
       formData,
       detail,
+      exchangeRate,
       expenseItems,
       dailyCredits
     });
@@ -162,7 +165,11 @@ export async function createTransaction(
     revalidatePath("/transactions");
     revalidatePath("/insights");
 
-    return { status: "success", message: "Transaction saved." };
+    return {
+      status: "success",
+      message: "Transaction saved.",
+      warning: exchangeRateResult.warning
+    };
   } catch (error) {
     return {
       status: "error",
@@ -203,9 +210,11 @@ export async function updateTransaction(
   }
 
   const location = buildLocationPayload(formData);
+  const exchangeRateResult = await getCurrentEurUsdRate();
+  const exchangeRate = exchangeRateResult.rate;
   const originalAmount = roundCurrency(parsed.data.originalAmount);
   const convertedAmountUsd = roundCurrency(
-    parsed.data.currency === "EUR" ? originalAmount * parsed.data.exchangeRate : originalAmount
+    parsed.data.currency === "EUR" ? originalAmount * exchangeRate : originalAmount
   );
 
   const { data, error } = await supabase
@@ -217,7 +226,7 @@ export async function updateTransaction(
       currency: parsed.data.currency,
       original_amount: originalAmount,
       converted_amount_usd: convertedAmountUsd,
-      exchange_rate_snapshot: parsed.data.exchangeRate,
+      exchange_rate_snapshot: exchangeRate,
       city: location.city,
       country: location.country,
       location_label: location.locationLabel,
@@ -245,7 +254,11 @@ export async function updateTransaction(
   }
 
   revalidateTransactionViews();
-  return { status: "success", message: "Transaction updated." };
+  return {
+    status: "success",
+    message: "Transaction updated.",
+    warning: exchangeRateResult.warning
+  };
 }
 
 export async function deleteTransaction(formData: FormData) {
@@ -439,6 +452,7 @@ async function insertDetailRecord(input: {
   transactionId: string;
   formData: FormData;
   detail: ReturnType<typeof buildTransactionPayload>;
+  exchangeRate: number;
   expenseItems: z.infer<typeof expenseItemSchema>[];
   dailyCredits: number[];
 }) {
@@ -500,7 +514,7 @@ async function insertDetailRecord(input: {
         "eurCreditConverted" in input.detail ? input.detail.eurCreditConverted : 0,
       converted_usd_amount:
         "convertedUsdAmount" in input.detail ? input.detail.convertedUsdAmount : 0,
-      exchange_rate_snapshot: numberValue(input.formData.get("exchangeRate"), 1),
+      exchange_rate_snapshot: input.exchangeRate,
       payment_mode: enumValue(
         input.formData.get("paymentMode"),
         "mixed"
@@ -564,6 +578,39 @@ async function syncTags(input: {
     if (error && error.code !== "23505") {
       throw error;
     }
+  }
+}
+
+async function getCurrentEurUsdRate(): Promise<{ rate: number; warning?: string }> {
+  const fallbackRate = getDefaultEurUsdRate();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const response = await fetch("https://api.frankfurter.app/latest?from=EUR&to=USD", {
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error("Exchange rate request failed.");
+    }
+
+    const payload = (await response.json()) as { rates?: { USD?: unknown } };
+    const rate = Number(payload.rates?.USD);
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("Exchange rate response was invalid.");
+    }
+
+    return { rate };
+  } catch {
+    return {
+      rate: fallbackRate,
+      warning: fallbackExchangeRateWarning
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
