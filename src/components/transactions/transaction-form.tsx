@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Panel, SectionHeader } from "@/components/ui/panel";
+import { LocationAutocomplete } from "@/components/transactions/location-autocomplete";
 import {
   createTransaction,
   type TransactionActionState
@@ -254,26 +255,7 @@ export function TransactionForm({
           </Field>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Field label="Location label">
-            <Input name="location_label" placeholder="Venue, client, or event" />
-          </Field>
-          <Field label="City">
-            <Input name="city" placeholder="Amsterdam" />
-          </Field>
-          <Field label="Country">
-            <Input name="country" placeholder="Netherlands" />
-          </Field>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Latitude">
-            <Input name="latitude" type="number" step="0.000001" placeholder="51.535000" />
-          </Field>
-          <Field label="Longitude">
-            <Input name="longitude" type="number" step="0.000001" placeholder="5.630000" />
-          </Field>
-        </div>
+        <LocationAutocomplete />
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Reminder title">

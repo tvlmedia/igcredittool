@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Panel, SectionHeader } from "@/components/ui/panel";
+import { LocationAutocomplete } from "@/components/transactions/location-autocomplete";
 import {
   deleteTransaction,
   restoreTransaction,
@@ -286,7 +287,7 @@ function EditTransactionForm({
         </Field>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <Field label="Original amount">
           <Input
             name="originalAmount"
@@ -302,38 +303,17 @@ function EditTransactionForm({
             <option value="USD">USD</option>
           </Select>
         </Field>
-        <Field label="Location label">
-          <Input name="location_label" defaultValue={transaction.location_label ?? ""} />
-        </Field>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="City">
-          <Input name="city" defaultValue={transaction.city ?? ""} />
-        </Field>
-        <Field label="Country">
-          <Input name="country" defaultValue={transaction.country ?? ""} />
-        </Field>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Latitude">
-          <Input
-            name="latitude"
-            type="number"
-            step="0.000001"
-            defaultValue={transaction.latitude ?? ""}
-          />
-        </Field>
-        <Field label="Longitude">
-          <Input
-            name="longitude"
-            type="number"
-            step="0.000001"
-            defaultValue={transaction.longitude ?? ""}
-          />
-        </Field>
-      </div>
+      <LocationAutocomplete
+        initialValue={{
+          locationLabel: transaction.location_label,
+          city: transaction.city,
+          country: transaction.country,
+          latitude: transaction.latitude,
+          longitude: transaction.longitude
+        }}
+      />
 
       <Field label="Notes">
         <Textarea name="description" defaultValue={transaction.description ?? ""} />
