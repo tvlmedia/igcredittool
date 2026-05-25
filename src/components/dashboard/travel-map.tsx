@@ -289,39 +289,38 @@ export function TravelMap({
                 })
               : null}
 
-            {homeBase && home ? (
-              <g transform={`translate(${home[0]} ${home[1]})`}>
-                <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
-                <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
-                <circle r="2.2" fill="#fff7ed" />
-              </g>
-            ) : null}
-
-            {points.map((point) => {
-              const color = transactionTypeColors[point.type];
-              const [x, y] = point.projected;
-
-              return (
-                <g
-                  key={point.id}
-                  transform={`translate(${x} ${y})`}
-                  onMouseEnter={() => setHoveredId(point.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  onFocus={() => setHoveredId(point.id)}
-                  onBlur={() => setHoveredId(null)}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`${point.title} in ${point.location}`}
-                  className="cursor-pointer outline-none"
-                >
-                  <circle className="travel-pulse" r="7" fill={color.glow} />
-                  <circle r="9" fill={color.glow} filter="url(#point-glow)" />
-                  <circle r={hoveredId === point.id ? "5.6" : "4.6"} fill={color.core} stroke="#090b0e" strokeWidth="2" />
-                </g>
-              );
-            })}
-
           </g>
+          {homeBase && homeOverlay ? (
+            <g transform={`translate(${homeOverlay.x} ${homeOverlay.y})`} pointerEvents="none">
+              <circle r="15" fill="rgba(245,158,66,0.08)" stroke="rgba(245,158,66,0.22)" />
+              <circle r="5.5" fill="#f59e42" filter="url(#point-glow)" />
+              <circle r="2.2" fill="#fff7ed" />
+            </g>
+          ) : null}
+
+          {points.map((point) => {
+            const color = transactionTypeColors[point.type];
+            const marker = getOverlayPosition(point.projected, transform);
+
+            return (
+              <g
+                key={point.id}
+                transform={`translate(${marker.x} ${marker.y})`}
+                onMouseEnter={() => setHoveredId(point.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                onFocus={() => setHoveredId(point.id)}
+                onBlur={() => setHoveredId(null)}
+                tabIndex={0}
+                role="button"
+                aria-label={`${point.title} in ${point.location}`}
+                className="cursor-pointer outline-none"
+              >
+                <circle className="travel-pulse" r="7" fill={color.glow} />
+                <circle r="9" fill={color.glow} filter="url(#point-glow)" />
+                <circle r={hoveredId === point.id ? "5.6" : "4.6"} fill={color.core} stroke="#090b0e" strokeWidth="2" />
+              </g>
+            );
+          })}
         </svg>
         {homeBase && homeOverlay ? (
           <div
