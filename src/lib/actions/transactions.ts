@@ -27,6 +27,16 @@ const baseSchema = z.object({
   exchangeRate: z.coerce.number().positive()
 });
 
+const updateSchema = z.object({
+  transactionId: z.string().min(1),
+  title: z.string().min(2, "Title is required"),
+  date: z.string().min(1, "Date is required"),
+  description: z.string().optional(),
+  currency: z.enum(["EUR", "USD"]),
+  originalAmount: z.coerce.number(),
+  exchangeRate: z.coerce.number().positive()
+});
+
 export async function createTransaction(
   _previousState: TransactionActionState,
   formData: FormData
@@ -159,6 +169,58 @@ export async function createTransaction(
       message: error instanceof Error ? error.message : "Something went wrong."
     };
   }
+}
+
+export async function updateTransaction(formData: FormData) {
+  if (!hasSupabaseEnv()) {
+    return;
+  }
+
+  const parsed = updateSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  const location = buildLocationPayload(formData);
+  const originalAmount = roundCurrency(parsed.data.originalAmount);
+  const convertedAmountUsd = roundCurrency(
+    parsed.data.currency === "EUR" ? originalAmount * parsed.data.exchangeRate : originalAmount
+  );
+
+  const { error } = await supabase
+    .from("transactions")
+    .update({
+      title: parsed.data.title,
+      description: parsed.data.description || null,
+      date: parsed.data.date,
+      currency: parsed.data.currency,
+      original_amount: originalAmount,
+      converted_amount_usd: convertedAmountUsd,
+      exchange_rate_snapshot: parsed.data.exchangeRate,
+      city: location.city,
+      country: location.country,
+      location_label: location.locationLabel,
+      latitude: location.latitude,
+      longitude: location.longitude
+    })
+    .eq("id", parsed.data.transactionId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateTransactionViews();
 }
 
 export async function deleteTransaction(formData: FormData) {

@@ -1,12 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Calendar, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Panel, SectionHeader } from "@/components/ui/panel";
-import { deleteTransaction, restoreTransaction } from "@/lib/actions/transactions";
+import {
+  deleteTransaction,
+  restoreTransaction,
+  updateTransaction
+} from "@/lib/actions/transactions";
+import { getDefaultEurUsdRate } from "@/lib/env";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Currency, TimelineEvent, TransactionType } from "@/lib/types/domain";
@@ -28,6 +33,7 @@ export function Timeline({
   const [source, setSource] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const sourceOptions = useMemo(
     () =>
@@ -69,6 +75,7 @@ export function Timeline({
 
   const shown = compact ? filtered.slice(0, 7) : filtered;
   const action = mode === "deleted" ? restoreTransaction : deleteTransaction;
+  const canEdit = mode === "active" && !compact;
 
   return (
     <Panel>
@@ -187,29 +194,50 @@ export function Timeline({
                   <p>Original amount: {originalAmount}</p>
                   <p>Currency: {transaction.currency}</p>
                 </div>
-                <form
-                  action={action}
-                  className="mt-3"
-                  onSubmit={(event) => {
-                    if (
-                      mode === "active" &&
-                      !window.confirm("Are you sure you want to delete this transaction?")
-                    ) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  <input type="hidden" name="transactionId" value={transaction.id} />
-                  <Button
-                    type="submit"
-                    variant={mode === "deleted" ? "secondary" : "danger"}
-                    icon={mode === "deleted" ? <RotateCcw size={15} /> : <Trash2 size={15} />}
-                    className="min-h-9 px-3 py-1.5"
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  {canEdit ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      icon={editingId === transaction.id ? <X size={15} /> : <Pencil size={15} />}
+                      className="min-h-9 px-3 py-1.5"
+                      onClick={() =>
+                        setEditingId(editingId === transaction.id ? null : transaction.id)
+                      }
+                    >
+                      {editingId === transaction.id ? "Close" : "Edit"}
+                    </Button>
+                  ) : null}
+                  <form
+                    action={action}
+                    onSubmit={(event) => {
+                      if (
+                        mode === "active" &&
+                        !window.confirm("Are you sure you want to delete this transaction?")
+                      ) {
+                        event.preventDefault();
+                      }
+                    }}
                   >
-                    {mode === "deleted" ? "Restore" : "Delete"}
-                  </Button>
-                </form>
+                    <input type="hidden" name="transactionId" value={transaction.id} />
+                    <Button
+                      type="submit"
+                      variant={mode === "deleted" ? "secondary" : "danger"}
+                      icon={mode === "deleted" ? <RotateCcw size={15} /> : <Trash2 size={15} />}
+                      className="min-h-9 px-3 py-1.5"
+                    >
+                      {mode === "deleted" ? "Restore" : "Delete"}
+                    </Button>
+                  </form>
+                </div>
               </div>
+              {editingId === transaction.id ? (
+                <EditTransactionForm
+                  transaction={transaction}
+                  onSaved={() => setEditingId(null)}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : null}
             </article>
           );
         })}
@@ -221,5 +249,104 @@ export function Timeline({
         ) : null}
       </div>
     </Panel>
+  );
+}
+
+function EditTransactionForm({
+  transaction,
+  onSaved,
+  onCancel
+}: {
+  transaction: TimelineEvent;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form
+      action={updateTransaction}
+      onSubmit={onSaved}
+      className="grid gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-4 md:col-span-3"
+    >
+      <input type="hidden" name="transactionId" value={transaction.id} />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Field label="Title">
+          <Input name="title" required defaultValue={transaction.title} />
+        </Field>
+        <Field label="Date">
+          <Input name="date" type="date" required defaultValue={transaction.date} />
+        </Field>
+        <Field label="Exchange rate">
+          <Input
+            name="exchangeRate"
+            type="number"
+            min="0"
+            step="0.0001"
+            defaultValue={Number(transaction.exchange_rate_snapshot ?? getDefaultEurUsdRate())}
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Field label="Original amount">
+          <Input
+            name="originalAmount"
+            type="number"
+            step="0.01"
+            required
+            defaultValue={Number(transaction.original_amount)}
+          />
+        </Field>
+        <Field label="Currency">
+          <Select name="currency" defaultValue={transaction.currency}>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </Select>
+        </Field>
+        <Field label="Location label">
+          <Input name="location_label" defaultValue={transaction.location_label ?? ""} />
+        </Field>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="City">
+          <Input name="city" defaultValue={transaction.city ?? ""} />
+        </Field>
+        <Field label="Country">
+          <Input name="country" defaultValue={transaction.country ?? ""} />
+        </Field>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Latitude">
+          <Input
+            name="latitude"
+            type="number"
+            step="0.000001"
+            defaultValue={transaction.latitude ?? ""}
+          />
+        </Field>
+        <Field label="Longitude">
+          <Input
+            name="longitude"
+            type="number"
+            step="0.000001"
+            defaultValue={transaction.longitude ?? ""}
+          />
+        </Field>
+      </div>
+
+      <Field label="Notes">
+        <Textarea name="description" defaultValue={transaction.description ?? ""} />
+      </Field>
+
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="secondary" icon={<Pencil size={16} />}>
+          Save changes
+        </Button>
+      </div>
+    </form>
   );
 }
