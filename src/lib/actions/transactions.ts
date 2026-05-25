@@ -155,6 +155,80 @@ export async function createTransaction(
   }
 }
 
+export async function deleteTransaction(formData: FormData) {
+  if (!hasSupabaseEnv()) {
+    return;
+  }
+
+  const transactionId = stringValue(formData.get("transactionId"));
+  if (!transactionId) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("transactions")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
+    .eq("id", transactionId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateTransactionViews();
+}
+
+export async function restoreTransaction(formData: FormData) {
+  if (!hasSupabaseEnv()) {
+    return;
+  }
+
+  const transactionId = stringValue(formData.get("transactionId"));
+  if (!transactionId) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("transactions")
+    .update({ deleted_at: null, deleted_by: null })
+    .eq("id", transactionId)
+    .eq("user_id", user.id)
+    .not("deleted_at", "is", null);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateTransactionViews();
+}
+
+function revalidateTransactionViews() {
+  revalidatePath("/dashboard");
+  revalidatePath("/transactions");
+  revalidatePath("/transactions/deleted");
+  revalidatePath("/insights");
+  revalidatePath("/admin");
+}
+
 function buildTransactionPayload(input: {
   type: TransactionType;
   formData: FormData;

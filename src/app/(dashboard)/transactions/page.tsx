@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { ExportButtons } from "@/components/transactions/export-buttons";
 import { ReminderPanel } from "@/components/transactions/reminder-panel";
 import { Timeline } from "@/components/transactions/timeline";
@@ -29,7 +31,16 @@ export default async function TransactionsPage() {
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">Transactions</h1>
         </div>
-        <ExportButtons transactions={data.transactions} />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/transactions/deleted"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.1]"
+          >
+            <Trash2 size={16} />
+            Deleted transactions
+          </Link>
+          <ExportButtons transactions={data.transactions} />
+        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_0.72fr]">

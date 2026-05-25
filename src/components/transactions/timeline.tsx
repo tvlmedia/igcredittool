@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, Search } from "lucide-react";
+import { Calendar, RotateCcw, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Panel, SectionHeader } from "@/components/ui/panel";
+import { deleteTransaction, restoreTransaction } from "@/lib/actions/transactions";
 import { buildGoogleCalendarUrl } from "@/lib/exports/calendar";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Currency, TimelineEvent, TransactionType } from "@/lib/types/domain";
@@ -12,10 +14,12 @@ import { transactionTypeLabels } from "@/lib/types/domain";
 
 export function Timeline({
   transactions,
-  compact = false
+  compact = false,
+  mode = "active"
 }: {
   transactions: TimelineEvent[];
   compact?: boolean;
+  mode?: "active" | "deleted";
 }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<TransactionType | "all">("all");
@@ -64,12 +68,13 @@ export function Timeline({
   }, [currency, dateFrom, dateTo, query, source, tag, transactions, type]);
 
   const shown = compact ? filtered.slice(0, 7) : filtered;
+  const action = mode === "deleted" ? restoreTransaction : deleteTransaction;
 
   return (
     <Panel>
       <SectionHeader
         eyebrow="Timeline"
-        title="Chronological ledger"
+        title={mode === "deleted" ? "Deleted transactions" : "Chronological ledger"}
         action={<span className="text-sm text-white/45">{filtered.length} events</span>}
       />
 
@@ -176,6 +181,28 @@ export function Timeline({
                   {formatCurrency(Number(transaction.converted_amount_usd), "USD")} snapshot
                 </p>
               ) : null}
+              <form
+                action={action}
+                className="mt-3"
+                onSubmit={(event) => {
+                  if (
+                    mode === "active" &&
+                    !window.confirm("Are you sure you want to delete this transaction?")
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                <input type="hidden" name="transactionId" value={transaction.id} />
+                <Button
+                  type="submit"
+                  variant={mode === "deleted" ? "secondary" : "danger"}
+                  icon={mode === "deleted" ? <RotateCcw size={15} /> : <Trash2 size={15} />}
+                  className="min-h-9 px-3 py-1.5"
+                >
+                  {mode === "deleted" ? "Restore" : "Delete"}
+                </Button>
+              </form>
             </div>
           </article>
         ))}
